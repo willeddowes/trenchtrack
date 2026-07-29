@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
       { onConflict: "team_abbr,season" }
     );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Refresh every page (homepage + all team pages share the root layout)
+    // so the new ESPN numbers show up on next visit instead of waiting for
+    // the daily ISR window.
+    revalidatePath("/", "layout");
     return NextResponse.json({ ok: true });
   }
 

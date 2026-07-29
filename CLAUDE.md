@@ -46,7 +46,9 @@ Three grades per team per week: Pass Block, Run Block, Overall. Every raw stat i
 - Season is in the URL (`/team/[slug]/[season]`) since historical ESPN data entry was an explicit requirement; `CURRENT_SEASON`/`SUPPORTED_SEASONS` are hardcoded in `web/lib/teamsStatic.ts` (bump + redeploy each new season).
 
 ## Known MVP shortcuts (intentional, revisit later)
-No auth beyond one shared password on `/internal/*` · pipeline runs manually, no cron yet · ISR revalidates once/day (not event-driven on pipeline write) · no CI on the Python side · donation link removed for now, pending a real Ko-fi/BMC URL.
+No auth beyond one shared password on `/internal/*` · pipeline runs manually, no cron yet · no CI on the Python side · donation link removed for now, pending a real Ko-fi/BMC URL.
+
+Note: `/api/espn-entry` and `/api/recompute-grades` both call `revalidatePath("/", "layout")` on success, so ESPN entries and grade recomputes show up on next page visit rather than waiting for the daily ISR window. The Python pipeline itself does **not** call this (it has no way to reach a Next.js route) — after a full `pull_and_compute.py` run, either wait for the daily revalidation or hit `/api/recompute-grades` once to force an immediate refresh.
 
 ## Where to look for more detail
 This file is intentionally short. For file-by-file specifics, just read the code — `web/lib/getTeamPageData.ts`, `web/lib/getHomepageData.ts`, and `pipeline/pull_and_compute.py` are the best entry points into how data flows end to end.
