@@ -4,7 +4,7 @@ it's a pure function of the DataFrames you pass it, which is what makes it
 easy to unit-test (see tests/test_compute_grades.py) and safe to reason
 about without touching a real database.
 
---- How the grading works (v1) ---
+--- How the grading works (v2) ---
 
 Every raw stat gets converted into a 0-100 "component score" by comparing
 each team against every OTHER team that same week, using min-max scaling:
@@ -12,15 +12,23 @@ the best team in the league that week scores 100 on that stat, the worst
 scores 0, and everyone else falls in between. This is a CURVED/RELATIVE
 grade, not an absolute one -- a team's grade can shift slightly week to
 week even if its own raw numbers don't change, because the league-wide
-best/worst can move. That's a known, intentional tradeoff for v1 (see the
+best/worst can move. That's a known, intentional tradeoff (see the
 project plan's shortcuts list).
 
-Pass Block score = average of whichever of these are available:
-  - sack rate (sacks allowed / dropback)       -- lower is better
-  - pressure rate allowed                       -- lower is better
-  - ESPN Pass Block Win Rate (manually entered)  -- higher is better
+Pass Block score = WEIGHTED average of whichever of these are available
+(weights below; a missing component's weight is dropped and the rest
+renormalized, not just averaged unweighted -- see _weighted_average):
+  - sack rate (sacks allowed / dropback), weight 0.20       -- lower is better
+  - pressure rate allowed, weight 0.40                       -- lower is better
+  - ESPN Pass Block Win Rate (manually entered), weight 0.40 -- higher is better
+Pressure rate and ESPN's win rate count double a raw sack -- sacks are
+partly a QB-behavior/scheme stat (how long they hold the ball, whether
+they take a bigger loss trying to escape) rather than purely an O-line
+one, so pressure rate is the more stable signal of protection quality.
+Sacks still carry real weight since they're a real, costly outcome.
 
-Run Block score = average of whichever of these are available:
+Run Block score = EQUAL-weighted average of whichever of these are
+available (no reason yet to weight these unevenly):
   - stuff rate (rush attempts stopped at/behind the line) -- lower is better
   - yards before contact per attempt                       -- higher is better
   - ESPN Run Block Win Rate (manually entered)              -- higher is better
@@ -43,7 +51,17 @@ the weights, bands, or components here, mirror the change there too.
 
 import pandas as pd
 
-GRADE_FORMULA_VERSION = "v1"
+GRADE_FORMULA_VERSION = "v2"
+
+# Pass Block component weights -- see the module docstring for the
+# reasoning. These are relative proportions, not required to sum to 1:
+# the denominator in _weighted_average is always the sum of whichever
+# weights are actually present for a given team, so any missing
+# component's weight is automatically redistributed proportionally
+# across the rest rather than just vanishing.
+SACK_RATE_WEIGHT = 0.20
+PRESSURE_RATE_WEIGHT = 0.40
+ESPN_PBWR_WEIGHT = 0.40
 
 # 13 EQUAL-WIDTH bands spanning the full 0-100 range (100/13 ~= 7.7 points
 # each), not the traditional school scale where "passing" starts at 60 and
@@ -85,12 +103,22 @@ def _normalize(series: pd.Series, higher_is_better: bool) -> pd.Series:
     return scaled if higher_is_better else 100 - scaled
 
 
-def _row_average(components: list[pd.Series]) -> pd.Series:
-    """Average whichever components are non-null for each row, ignoring the
-    rest -- this is how a missing ESPN figure just drops out of the blend
-    instead of breaking the whole score."""
-    stacked = pd.concat(components, axis=1)
-    return stacked.mean(axis=1, skipna=True)
+def _weighted_average(components: list[tuple[pd.Series, float]]) -> pd.Series:
+    """Weighted average of whichever components are non-null for each row.
+    A missing component (e.g. ESPN data not entered yet) drops its weight
+    out of the denominator entirely, so the remaining components'
+    *relative* weights are preserved rather than the gap being silently
+    averaged away unweighted. Passing equal weights (e.g. all 1s) gives a
+    plain average, same as before."""
+    weighted_sum = None
+    weight_sum = None
+    for series, weight in components:
+        present = series.notna()
+        contribution = series.fillna(0) * weight * present
+        weighted_sum = contribution if weighted_sum is None else weighted_sum + contribution
+        this_weight = present.astype(float) * weight
+        weight_sum = this_weight if weight_sum is None else weight_sum + this_weight
+    return weighted_sum / weight_sum.replace(0, pd.NA)
 
 
 def compute_grades(team_week_stats: pd.DataFrame, espn_team_rates: pd.DataFrame) -> pd.DataFrame:
@@ -127,7 +155,7 @@ def compute_grades(team_week_stats: pd.DataFrame, espn_team_rates: pd.DataFrame)
         # Components built from an all-null column (e.g. nobody has entered
         # ESPN data yet) score every team 50 by _normalize's tie-break rule,
         # which would silently pull every grade toward the middle. Mask
-        # those back out to NaN so _row_average correctly ignores them.
+        # those back out to NaN so _weighted_average correctly ignores them.
         for col_name, components in (
             ("pass_block_win_rate", pass_components),
             ("run_block_win_rate", run_components),
@@ -136,8 +164,14 @@ def compute_grades(team_week_stats: pd.DataFrame, espn_team_rates: pd.DataFrame)
                 components[-1] = pd.Series(pd.NA, index=idx)
 
         week_df = week_df.copy()
-        week_df["pass_block_score"] = _row_average(pass_components)
-        week_df["run_block_score"] = _row_average(run_components)
+        week_df["pass_block_score"] = _weighted_average([
+            (pass_components[0], SACK_RATE_WEIGHT),
+            (pass_components[1], PRESSURE_RATE_WEIGHT),
+            (pass_components[2], ESPN_PBWR_WEIGHT),
+        ])
+        # Run Block stays equal-weighted for now -- passing 1 for every
+        # weight makes _weighted_average behave as a plain average.
+        week_df["run_block_score"] = _weighted_average([(c, 1) for c in run_components])
         week_df["overall_score"] = week_df[["pass_block_score", "run_block_score"]].mean(axis=1)
         results.append(week_df)
 

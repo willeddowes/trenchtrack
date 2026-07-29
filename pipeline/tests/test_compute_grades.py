@@ -2,6 +2,7 @@
 database. Run with: venv/bin/pytest tests/ (from the pipeline/ directory)."""
 
 import pandas as pd
+import pytest
 
 from compute_grades import compute_grades, score_to_letter
 
@@ -75,6 +76,33 @@ def test_no_espn_data_at_all_still_grades_from_automated_stats():
     result = compute_grades(stats, espn).set_index("team_abbr")
 
     assert result.loc["GOOD", "overall_score"] > result.loc["BAD", "overall_score"]
+
+
+def test_pass_block_weighting_is_20_40_40_not_equal_thirds():
+    # Two teams, each the league's best on one side of the profile and
+    # worst on the other -- with only 2 teams, min-max scaling gives each
+    # component a clean 100/0 split, so the resulting pass_block_score
+    # pins down the exact weights in use. Under equal-thirds this would be
+    # 33.3/66.7; under 20/40/40 it must be exactly 20/80.
+    stats = make_stats(
+        [
+            {"team_abbr": "SACK_KING", "week": 1, "dropbacks": 100, "sacks_allowed": 1,
+             "pressure_rate_allowed": 0.30, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.0},
+            {"team_abbr": "PRESSURE_KING", "week": 1, "dropbacks": 100, "sacks_allowed": 10,
+             "pressure_rate_allowed": 0.10, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.0},
+        ]
+    )
+    espn = make_stats(
+        [
+            {"team_abbr": "SACK_KING", "pass_block_win_rate": 50, "run_block_win_rate": 60},
+            {"team_abbr": "PRESSURE_KING", "pass_block_win_rate": 70, "run_block_win_rate": 60},
+        ]
+    )
+
+    result = compute_grades(stats, espn).set_index("team_abbr")
+
+    assert result.loc["SACK_KING", "pass_block_score"] == pytest.approx(20.0)
+    assert result.loc["PRESSURE_KING", "pass_block_score"] == pytest.approx(80.0)
 
 
 def test_score_to_letter_bands():

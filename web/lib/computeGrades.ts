@@ -10,11 +10,20 @@
  * See compute_grades.py's docstring for the full plain-language writeup of
  * how the formula works. Short version: every raw stat is min-max scaled
  * to 0-100 across whichever teams are passed in (best=100, worst=0), then
- * averaged into Pass Block / Run Block / Overall scores and mapped to
+ * blended into Pass Block (weighted 20/40/40: sack rate / pressure rate /
+ * ESPN PBWR) / Run Block (equal-weighted) / Overall scores, mapped to
  * letters on an equal-width 13-band scale.
  */
 
-export const GRADE_FORMULA_VERSION = "v1";
+export const GRADE_FORMULA_VERSION = "v2";
+
+// Pass Block component weights -- pressure rate and ESPN's win rate count
+// double a raw sack (sacks are partly a QB-behavior/scheme stat, not
+// purely an O-line one). These are relative proportions, not required to
+// sum to 1 -- see weightedAverage.
+const SACK_RATE_WEIGHT = 0.2;
+const PRESSURE_RATE_WEIGHT = 0.4;
+const ESPN_PBWR_WEIGHT = 0.4;
 
 const GRADE_BANDS: [number, string][] = [
   [92.3, "A+"], [84.6, "A"], [76.9, "A-"],
@@ -49,14 +58,26 @@ function normalize(values: (number | null)[], higherIsBetter: boolean): (number 
   });
 }
 
-/** Averages whichever components are non-null for each team, ignoring the
- * rest -- a missing ESPN figure just drops out of the blend. */
-function rowAverage(components: (number | null)[][]): (number | null)[] {
-  const count = components[0]?.length ?? 0;
+/** Weighted average of whichever components are non-null for each team. A
+ * missing component (e.g. ESPN data not entered yet) drops its weight out
+ * of the denominator entirely, so the remaining components' *relative*
+ * weights are preserved rather than the gap being silently averaged away
+ * unweighted. Pass a weight of 1 for every component to get a plain
+ * average. */
+function weightedAverage(components: [(number | null)[], number][]): (number | null)[] {
+  const count = components[0]?.[0].length ?? 0;
   const result: (number | null)[] = [];
   for (let i = 0; i < count; i++) {
-    const present = components.map((c) => c[i]).filter((v): v is number => v !== null);
-    result.push(present.length > 0 ? present.reduce((a, b) => a + b, 0) / present.length : null);
+    let weightedSum = 0;
+    let weightSum = 0;
+    for (const [values, weight] of components) {
+      const v = values[i];
+      if (v !== null) {
+        weightedSum += v * weight;
+        weightSum += weight;
+      }
+    }
+    result.push(weightSum > 0 ? weightedSum / weightSum : null);
   }
   return result;
 }
@@ -100,19 +121,21 @@ export function computeGrades(rawStats: TeamRawStats[], espnRates: EspnTeamRate[
   const pbwr = rawStats.map((t) => espnByTeam.get(t.team_abbr)?.pass_block_win_rate ?? null);
   const rbwr = rawStats.map((t) => espnByTeam.get(t.team_abbr)?.run_block_win_rate ?? null);
 
-  const passComponents = [
-    normalize(sackRates, false),
-    normalize(pressureRates, false),
-    pbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(pbwr, true),
-  ];
-  const runComponents = [
-    normalize(stuffRates, false),
-    normalize(ybcPerAtt, true),
-    rbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(rbwr, true),
-  ];
+  const normalizedPbwr = pbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(pbwr, true);
+  const normalizedRbwr = rbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(rbwr, true);
 
-  const passScores = rowAverage(passComponents);
-  const runScores = rowAverage(runComponents);
+  const passScores = weightedAverage([
+    [normalize(sackRates, false), SACK_RATE_WEIGHT],
+    [normalize(pressureRates, false), PRESSURE_RATE_WEIGHT],
+    [normalizedPbwr, ESPN_PBWR_WEIGHT],
+  ]);
+  // Run Block stays equal-weighted for now -- passing 1 for every weight
+  // makes weightedAverage behave as a plain average.
+  const runScores = weightedAverage([
+    [normalize(stuffRates, false), 1],
+    [normalize(ybcPerAtt, true), 1],
+    [normalizedRbwr, 1],
+  ]);
 
   return rawStats.map((team, i) => {
     const pass_block_score = passScores[i];
