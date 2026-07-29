@@ -25,7 +25,7 @@ import nflreadpy as nfl
 
 from compute_grades import compute_grades
 from steps.pull_injuries import pull_injuries
-from steps.pull_ol_depth_chart import DepthChartNotArchivedError, pull_season_ol_depth_chart
+from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_players import pull_players
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
@@ -49,11 +49,8 @@ def main() -> None:
     upsert_players(client, pull_players(season))
 
     print("Pulling O-line depth chart (snap counts by position)...")
-    try:
-        depth_chart = pull_season_ol_depth_chart(season)
-        replace_ol_depth_chart(client, season, depth_chart.to_dict(orient="records"))
-    except DepthChartNotArchivedError as e:
-        print(f"Skipping depth chart: {e}")
+    depth_chart = pull_season_ol_depth_chart(season)
+    replace_ol_depth_chart(client, season, depth_chart.to_dict(orient="records"))
 
     print("Pulling injuries...")
     replace_injuries(client, season, pull_injuries(season))

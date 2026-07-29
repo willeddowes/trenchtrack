@@ -18,7 +18,7 @@ Usage:
 import sys
 
 from compute_grades import compute_grades
-from steps.pull_ol_depth_chart import DepthChartNotArchivedError, pull_season_ol_depth_chart
+from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
     fetch_espn_team_rates,
@@ -53,11 +53,7 @@ def backfill(client, season: int) -> None:
     upsert_team_ol_stats(client, to_write)
 
     print(f"[{season}] pulling O-line depth chart (snap counts by position)...")
-    try:
-        depth_chart = pull_season_ol_depth_chart(season)
-    except DepthChartNotArchivedError as e:
-        print(f"[{season}] skipping depth chart: {e}")
-        return
+    depth_chart = pull_season_ol_depth_chart(season)
     print(f"[{season}] writing {len(depth_chart)} depth chart rows...")
     replace_ol_depth_chart(client, season, depth_chart.to_dict(orient="records"))
 
