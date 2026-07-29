@@ -1,0 +1,9 @@
+# Python (pipeline/)
+pipeline/venv/
+pipeline/__pycache__/
+pipeline/**/__pycache__/
+*.pyc
+pipeline/.env
+
+# macOS
+.DS_Store
