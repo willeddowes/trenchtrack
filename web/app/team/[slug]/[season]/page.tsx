@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTeamPageData } from "@/lib/getTeamPageData";
 import { CURRENT_SEASON, SUPPORTED_SEASONS, TEAM_SLUGS } from "@/lib/teamsStatic";
+import { ordinal } from "@/lib/formatRank";
 import { GradeBadge } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
 
@@ -42,8 +43,8 @@ export default async function TeamPage({
       <header className="flex items-center gap-4">
         <TeamLogo team={team} size={72} />
         <div>
-          <h1 className="text-2xl font-bold">{team.team_name}</h1>
-          <p className="text-sm text-gray-600">
+          <h1 className="text-2xl font-extrabold tracking-tight">{team.team_name}</h1>
+          <p className="text-sm text-ink-muted">
             {team.conference} &middot; {team.division} &middot; {season} season
           </p>
         </div>
@@ -63,62 +64,82 @@ export default async function TeamPage({
         />
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold">ESPN Block Win Rate</h2>
+      <section className="rounded-2xl border border-line bg-surface p-5">
+        <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">ESPN Block Win Rate</h2>
         {espnTeamRates ? (
           <>
-            <p>Pass Block Win Rate: {espnTeamRates.pass_block_win_rate ?? "—"}%</p>
+            <p className="mt-2">Pass Block Win Rate: {espnTeamRates.pass_block_win_rate ?? "—"}%</p>
             <p>Run Block Win Rate: {espnTeamRates.run_block_win_rate ?? "—"}%</p>
-            <p className="text-xs text-gray-500">Source: ESPN</p>
+            <p className="mt-1 text-xs text-ink-muted">Source: ESPN</p>
           </>
         ) : (
-          <p className="text-gray-500">Not yet entered for this season.</p>
+          <p className="mt-2 text-ink-muted">Not yet entered for this season.</p>
         )}
       </section>
 
       {stats && (
-        <section>
-          <h2 className="text-lg font-semibold">Season Stats (through week {stats.week})</h2>
-          <p>Sacks allowed: {stats.sacks_allowed}</p>
-          <p>
-            Pressure rate allowed:{" "}
-            {stats.pressure_rate_allowed !== null
-              ? `${(stats.pressure_rate_allowed * 100).toFixed(1)}%`
-              : "—"}
-          </p>
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+            Season Stats (through week {stats.week})
+          </h2>
+          <dl className="mt-3 space-y-2">
+            <div className="flex items-baseline justify-between">
+              <dt>Sacks allowed</dt>
+              <dd className="font-mono tabular-nums">
+                {stats.sacks_allowed}
+                {stats.sacks_allowed_rank !== null && (
+                  <span className="ml-1 text-ink-muted">({ordinal(stats.sacks_allowed_rank)})</span>
+                )}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <dt>Pressure rate allowed</dt>
+              <dd className="font-mono tabular-nums">
+                {stats.pressure_rate_allowed !== null
+                  ? `${(stats.pressure_rate_allowed * 100).toFixed(1)}%`
+                  : "—"}
+                {stats.pressure_rate_allowed_rank !== null && (
+                  <span className="ml-1 text-ink-muted">({ordinal(stats.pressure_rate_allowed_rank)})</span>
+                )}
+              </dd>
+            </div>
+          </dl>
         </section>
       )}
 
       {isCurrentSeason && (
         <>
-          <section>
-            <h2 className="text-lg font-semibold">Current Offensive Line</h2>
+          <section className="rounded-2xl border border-line bg-surface p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Current Offensive Line</h2>
             {starters.length > 0 ? (
-              <ul>
+              <ul className="mt-3 divide-y divide-line">
                 {starters.map((s) => (
-                  <li key={s.position}>
-                    {s.position}: {s.player_name}
+                  <li key={s.position} className="flex items-center gap-3 py-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-xs font-bold text-ink-muted">
+                      {s.position}
+                    </span>
+                    <span className="font-semibold">{s.player_name}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-500">No starting lineup available yet.</p>
+              <p className="mt-2 text-ink-muted">No starting lineup available yet.</p>
             )}
           </section>
 
-          <section>
-            <h2 className="text-lg font-semibold">OL Injury Report</h2>
+          <section className="rounded-2xl border border-line bg-surface p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">OL Injury Report</h2>
             {injuries.length > 0 ? (
-              <ul>
+              <ul className="mt-3 divide-y divide-line">
                 {injuries.map((i, idx) => (
-                  <li key={idx}>
-                    {i.player_name} ({i.position}) — {i.status}
+                  <li key={idx} className="py-2">
+                    <span className="font-semibold">{i.player_name}</span> ({i.position}) &mdash; {i.status}
                     {i.injury_description ? `: ${i.injury_description}` : ""}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-500">No OL injuries reported.</p>
+              <p className="mt-2 text-ink-muted">No OL injuries reported.</p>
             )}
           </section>
         </>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
+import { TeamSearch } from "@/components/TeamSearch";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,17 +29,24 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <div className="flex justify-end border-b border-gray-200 p-3">
+      <body className="min-h-full flex flex-col bg-background text-ink">
+        <header className="flex items-center gap-5 border-b border-line px-6 py-4 sm:px-8">
+          <Link href="/" className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-accent-ink">
+              TT
+            </span>
+            TrenchTrack
+          </Link>
+          <TeamSearch />
           <a
             href="https://ko-fi.com/YOUR_HANDLE"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+            className="ml-auto rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-background hover:opacity-90"
           >
             ☕ Buy me a coffee
           </a>
-        </div>
+        </header>
         {children}
       </body>
     </html>

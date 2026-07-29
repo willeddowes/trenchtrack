@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "web"],
       "port": 3000
+    },
+    {
+      "name": "design-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8899", "--directory", "/private/tmp/claude-501/-Users-willeddowes-trench-track/12247fb1-a48e-449f-98cf-6b7d60663c6c/scratchpad"],
+      "port": 8899
     }
   ]
 }
