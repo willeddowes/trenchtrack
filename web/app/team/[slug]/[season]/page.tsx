@@ -64,47 +64,54 @@ export default async function TeamPage({
         />
       </section>
 
-      <section className="rounded-2xl border border-line bg-surface p-5">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">ESPN Block Win Rate</h2>
-        {espnTeamRates ? (
-          <>
-            <p className="mt-2">Pass Block Win Rate: {espnTeamRates.pass_block_win_rate ?? "—"}%</p>
-            <p>Run Block Win Rate: {espnTeamRates.run_block_win_rate ?? "—"}%</p>
-            <p className="mt-1 text-xs text-ink-muted">Source: ESPN</p>
-          </>
-        ) : (
-          <p className="mt-2 text-ink-muted">Not yet entered for this season.</p>
-        )}
-      </section>
-
       {stats && (
-        <section className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
-            Season Stats (through week {stats.week})
-          </h2>
-          <dl className="mt-3 space-y-2">
-            <div className="flex items-baseline justify-between">
-              <dt>Sacks allowed</dt>
-              <dd className="font-mono tabular-nums">
-                {stats.sacks_allowed}
-                {stats.sacks_allowed_rank !== null && (
-                  <span className="ml-1 text-ink-muted">({ordinal(stats.sacks_allowed_rank)})</span>
-                )}
-              </dd>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <dt>Pressure rate allowed</dt>
-              <dd className="font-mono tabular-nums">
-                {stats.pressure_rate_allowed !== null
-                  ? `${(stats.pressure_rate_allowed * 100).toFixed(1)}%`
-                  : "—"}
-                {stats.pressure_rate_allowed_rank !== null && (
-                  <span className="ml-1 text-ink-muted">({ordinal(stats.pressure_rate_allowed_rank)})</span>
-                )}
-              </dd>
-            </div>
-          </dl>
-        </section>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <section className="rounded-2xl border border-line bg-surface p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+              Pass Pro Metrics &middot; through week {stats.week}
+            </h2>
+            <dl className="mt-2 divide-y divide-line">
+              <MetricRow label="Sacks Allowed" value={String(stats.sacks_allowed)} rank={stats.sacks_allowed_rank} />
+              <MetricRow
+                label="Pressure Rate"
+                value={stats.pressure_rate_allowed !== null ? `${(stats.pressure_rate_allowed * 100).toFixed(1)}%` : "—"}
+                rank={stats.pressure_rate_allowed_rank}
+              />
+              <MetricRow
+                label="ESPN Pass Blk Win Rate"
+                value={espnTeamRates?.pass_block_win_rate !== null && espnTeamRates?.pass_block_win_rate !== undefined
+                  ? `${espnTeamRates.pass_block_win_rate}%`
+                  : "Not yet entered"}
+                rank={espnTeamRates?.pass_block_win_rate_rank ?? null}
+              />
+            </dl>
+          </section>
+
+          <section className="rounded-2xl border border-line bg-surface p-5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+              Run Game Metrics &middot; through week {stats.week}
+            </h2>
+            <dl className="mt-2 divide-y divide-line">
+              <MetricRow
+                label="Stuff Rate"
+                value={stats.stuff_rate !== null ? `${(stats.stuff_rate * 100).toFixed(1)}%` : "—"}
+                rank={stats.stuff_rate_rank}
+              />
+              <MetricRow
+                label="Yards Before Contact/Att"
+                value={stats.yards_before_contact_per_att !== null ? stats.yards_before_contact_per_att.toFixed(2) : "—"}
+                rank={stats.yards_before_contact_per_att_rank}
+              />
+              <MetricRow
+                label="ESPN Run Blk Win Rate"
+                value={espnTeamRates?.run_block_win_rate !== null && espnTeamRates?.run_block_win_rate !== undefined
+                  ? `${espnTeamRates.run_block_win_rate}%`
+                  : "Not yet entered"}
+                rank={espnTeamRates?.run_block_win_rate_rank ?? null}
+              />
+            </dl>
+          </section>
+        </div>
       )}
 
       {isCurrentSeason && (
@@ -145,5 +152,28 @@ export default async function TeamPage({
         </>
       )}
     </main>
+  );
+}
+
+/** One row inside a metrics section: a label, its value, and its league
+ * rank (e.g. "35 (12th)"). ESPN-sourced rows spell that out in the label
+ * itself ("ESPN Pass Blk Win Rate"), so there's no separate source tag. */
+function MetricRow({
+  label,
+  value,
+  rank,
+}: {
+  label: string;
+  value: string;
+  rank: number | null;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2">
+      <dt>{label}</dt>
+      <dd className="shrink-0 font-mono tabular-nums">
+        {value}
+        {rank !== null && <span className="ml-1 text-ink-muted">({ordinal(rank)})</span>}
+      </dd>
+    </div>
   );
 }

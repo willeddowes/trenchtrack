@@ -19,7 +19,9 @@ export type TeamPageData = {
     pressure_rate_allowed: number | null;
     pressure_rate_allowed_rank: number | null;
     stuff_rate: number | null;
+    stuff_rate_rank: number | null;
     yards_before_contact_per_att: number | null;
+    yards_before_contact_per_att_rank: number | null;
     pass_block_score: number | null;
     pass_block_grade: string | null;
     run_block_score: number | null;
@@ -29,7 +31,12 @@ export type TeamPageData = {
   } | null;
   starters: { position: string; player_name: string }[];
   injuries: { player_name: string; position: string | null; status: string | null; injury_description: string | null }[];
-  espnTeamRates: { pass_block_win_rate: number | null; run_block_win_rate: number | null } | null;
+  espnTeamRates: {
+    pass_block_win_rate: number | null;
+    pass_block_win_rate_rank: number | null;
+    run_block_win_rate: number | null;
+    run_block_win_rate_rank: number | null;
+  } | null;
 };
 
 /** Assembles everything one team page needs, in a handful of parallel
@@ -45,7 +52,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
 
   if (!team) return null;
 
-  const [{ data: statsRows }, { data: starters }, { data: injuries }, { data: espnTeamRates }, leagueStats] =
+  const [{ data: statsRows }, { data: starters }, { data: injuries }, leagueStats, leagueEspnRates] =
     await Promise.all([
       supabase
         .from("team_ol_stats")
@@ -65,13 +72,8 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
         .select("player_name, position, status, injury_description")
         .eq("team_abbr", team.team_abbr)
         .eq("season", season),
-      supabase
-        .from("espn_team_block_win_rates")
-        .select("pass_block_win_rate, run_block_win_rate")
-        .eq("team_abbr", team.team_abbr)
-        .eq("season", season)
-        .maybeSingle(),
-      getLeagueRanks(supabase, season, team.team_abbr),
+      getLeagueStatRanks(supabase, season, team.team_abbr),
+      getLeagueEspnRanks(supabase, season, team.team_abbr),
     ]);
 
   const positionOrder = ["LT", "LG", "C", "RG", "RT"];
@@ -84,30 +86,64 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
           ...rawStats,
           sacks_allowed_rank: leagueStats?.sacks_allowed_rank ?? null,
           pressure_rate_allowed_rank: leagueStats?.pressure_rate_allowed_rank ?? null,
+          stuff_rate_rank: leagueStats?.stuff_rate_rank ?? null,
+          yards_before_contact_per_att_rank: leagueStats?.yards_before_contact_per_att_rank ?? null,
         }
       : null,
     starters: (starters ?? []).sort(
       (a, b) => positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position)
     ),
     injuries: injuries ?? [],
-    espnTeamRates: espnTeamRates ?? null,
+    espnTeamRates: leagueEspnRates,
   };
 }
 
-/** Ranks a team's sacks allowed and pressure rate allowed against every
- * other team's latest week that season -- lower is better for both, so
- * rank 1 = fewest sacks / lowest pressure rate in the league. Ties share
- * the same rank (rank = how many teams did strictly better, + 1). */
-async function getLeagueRanks(
+/** Rank helper shared by both league-comparison functions below: given a
+ * value and a way to read that same field off every other team, returns
+ * how many teams did strictly better + 1. Ties share a rank (e.g. two
+ * teams tied for the league's fewest sacks are both "1st"). `null` in
+ * means the team itself doesn't have that stat, so there's nothing to
+ * rank -- returns null rather than a misleading number. */
+function rankAgainst<T>(
+  value: number | null,
+  all: T[],
+  getField: (row: T) => number | null,
+  higherIsBetter: boolean
+): number | null {
+  if (value === null) return null;
+  const betterCount = all.filter((row) => {
+    const v = getField(row);
+    if (v === null) return false;
+    return higherIsBetter ? v > value : v < value;
+  }).length;
+  return betterCount + 1;
+}
+
+type LeagueStatsRow = {
+  team_abbr: string;
+  week: number;
+  sacks_allowed: number;
+  pressure_rate_allowed: number | null;
+  stuff_rate: number | null;
+  yards_before_contact_per_att: number | null;
+};
+
+/** Ranks a team's automated Pass Pro / Run Game ingredient stats against
+ * every other team's latest week that season. Sacks/pressure/stuff are
+ * "lower is better"; yards before contact is "higher is better". */
+async function getLeagueStatRanks(
   supabase: ReturnType<typeof createAnonServerClient>,
   season: number,
   teamAbbr: string
-): Promise<{ sacks_allowed_rank: number; pressure_rate_allowed_rank: number } | null> {
-  type LeagueStatsRow = { team_abbr: string; week: number; sacks_allowed: number; pressure_rate_allowed: number | null };
-
+): Promise<{
+  sacks_allowed_rank: number | null;
+  pressure_rate_allowed_rank: number | null;
+  stuff_rate_rank: number | null;
+  yards_before_contact_per_att_rank: number | null;
+} | null> {
   const { data: rows } = await supabase
     .from("team_ol_stats")
-    .select("team_abbr, week, sacks_allowed, pressure_rate_allowed")
+    .select("team_abbr, week, sacks_allowed, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att")
     .eq("season", season);
   if (!rows || rows.length === 0) return null;
 
@@ -121,17 +157,43 @@ async function getLeagueRanks(
   if (!target) return null;
 
   const all = [...latestByTeam.values()];
-  const rank = (value: number | null, getField: (r: LeagueStatsRow) => number | null) => {
-    if (value === null) return null;
-    const betterCount = all.filter((r) => {
-      const v = getField(r);
-      return v !== null && v < value;
-    }).length;
-    return betterCount + 1;
+  return {
+    sacks_allowed_rank: rankAgainst(target.sacks_allowed, all, (r) => r.sacks_allowed, false),
+    pressure_rate_allowed_rank: rankAgainst(target.pressure_rate_allowed, all, (r) => r.pressure_rate_allowed, false),
+    stuff_rate_rank: rankAgainst(target.stuff_rate, all, (r) => r.stuff_rate, false),
+    yards_before_contact_per_att_rank: rankAgainst(
+      target.yards_before_contact_per_att,
+      all,
+      (r) => r.yards_before_contact_per_att,
+      true
+    ),
   };
+}
+
+type LeagueEspnRow = { team_abbr: string; pass_block_win_rate: number | null; run_block_win_rate: number | null };
+
+/** Same idea as getLeagueStatRanks, but for the manually-entered ESPN
+ * win rates -- both "higher is better", and only ranked against whichever
+ * teams have ESPN data entered so far (teams without it just don't count
+ * toward the comparison). */
+async function getLeagueEspnRanks(
+  supabase: ReturnType<typeof createAnonServerClient>,
+  season: number,
+  teamAbbr: string
+): Promise<TeamPageData["espnTeamRates"]> {
+  const { data: rows } = await supabase
+    .from("espn_team_block_win_rates")
+    .select("team_abbr, pass_block_win_rate, run_block_win_rate")
+    .eq("season", season);
+  const all: LeagueEspnRow[] = rows ?? [];
+
+  const target = all.find((r) => r.team_abbr === teamAbbr);
+  if (!target) return null;
 
   return {
-    sacks_allowed_rank: rank(target.sacks_allowed, (r) => r.sacks_allowed) ?? 1,
-    pressure_rate_allowed_rank: rank(target.pressure_rate_allowed, (r) => r.pressure_rate_allowed) as number,
+    pass_block_win_rate: target.pass_block_win_rate,
+    pass_block_win_rate_rank: rankAgainst(target.pass_block_win_rate, all, (r) => r.pass_block_win_rate, true),
+    run_block_win_rate: target.run_block_win_rate,
+    run_block_win_rate_rank: rankAgainst(target.run_block_win_rate, all, (r) => r.run_block_win_rate, true),
   };
 }
