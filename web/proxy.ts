@@ -40,5 +40,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/internal/:path*", "/api/espn-entry/:path*"],
+  matcher: ["/internal/:path*", "/api/espn-entry/:path*", "/api/recompute-grades/:path*"],
 };

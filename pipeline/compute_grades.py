@@ -34,6 +34,11 @@ Overall score = average of Pass Block score and Run Block score.
 All three scores map to letters using the same academic-style scale.
 Bump GRADE_FORMULA_VERSION any time the weights or bands below change, so
 old and new grades in the database are distinguishable.
+
+KEEP THIS IN SYNC WITH web/lib/computeGrades.ts -- that's a TypeScript
+port of this exact formula, used by the "Recompute grades now" button so
+grades can refresh without waiting for a full pipeline run. If you change
+the weights, bands, or components here, mirror the change there too.
 """
 
 import pandas as pd
