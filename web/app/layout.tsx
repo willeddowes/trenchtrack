@@ -38,14 +38,6 @@ export default function RootLayout({
             TrenchTrack
           </Link>
           <TeamSearch />
-          <a
-            href="https://ko-fi.com/YOUR_HANDLE"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-background hover:opacity-90"
-          >
-            ☕ Buy me a coffee
-          </a>
         </header>
         {children}
       </body>

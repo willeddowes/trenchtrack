@@ -29,7 +29,7 @@ export default async function HomePage() {
   const worst = graded.length ? graded.reduce((a, b) => (b.overall_score! < a.overall_score! ? b : a)) : null;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-10 p-8">
+    <main className="mx-auto max-w-7xl space-y-8 p-8">
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight">Offensive line grades</h1>
         <p className="text-ink-muted">{CURRENT_SEASON} season &middot; updated weekly</p>
@@ -58,24 +58,26 @@ export default async function HomePage() {
         </div>
       )}
 
-      {DIVISION_ORDER.map((division) => (
-        <section key={division}>
-          <h2 className="mb-3 text-lg font-bold">{division}</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {byDivision.get(division)?.map((team) => (
-              <Link
-                key={team.slug}
-                href={`/team/${team.slug}/${CURRENT_SEASON}`}
-                className="flex flex-col items-center gap-2 rounded-2xl border border-line bg-surface p-4 hover:border-accent"
-              >
-                <TeamLogo team={team} size={56} />
-                <span className="text-sm font-bold">{team.team_nickname}</span>
-                <GradeBadge label="Overall" grade={team.overall_grade} score={team.overall_score} />
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
+        {DIVISION_ORDER.map((division) => (
+          <section key={division}>
+            <h2 className="mb-2 text-sm font-bold">{division}</h2>
+            <div className="grid grid-cols-4 gap-2">
+              {byDivision.get(division)?.map((team) => (
+                <Link
+                  key={team.slug}
+                  href={`/team/${team.slug}/${CURRENT_SEASON}`}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-line bg-surface p-2 hover:border-accent"
+                >
+                  <TeamLogo team={team} size={36} />
+                  <span className="text-center text-xs font-bold leading-tight">{team.team_nickname}</span>
+                  <GradeBadge label="Overall" grade={team.overall_grade} score={team.overall_score} size="sm" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </main>
   );
 }

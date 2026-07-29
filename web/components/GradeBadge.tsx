@@ -9,14 +9,21 @@ const GRADE_COLOR_VARS: Record<string, string> = {
   F: "--grade-f",
 };
 
+const SIZE_CLASSES = {
+  md: { pad: "px-4 py-3", label: "text-[0.7rem]", letter: "text-2xl", score: "text-xs" },
+  sm: { pad: "px-2.5 py-1.5", label: "text-[0.6rem]", letter: "text-lg", score: "text-[0.65rem]" },
+};
+
 export function GradeBadge({
   label,
   grade,
   score,
+  size = "md",
 }: {
   label: string;
   grade: string | null;
   score: number | null;
+  size?: "md" | "sm";
 }) {
   const colorVar = grade ? GRADE_COLOR_VARS[grade[0]] : undefined;
   const style = colorVar
@@ -25,16 +32,17 @@ export function GradeBadge({
         color: `var(${colorVar})`,
       }
     : { backgroundColor: "var(--surface)", color: "var(--ink-muted)" };
+  const sizeClasses = SIZE_CLASSES[size];
 
   return (
     <div
-      className="flex flex-col items-center gap-0.5 rounded-2xl border border-line px-4 py-3"
+      className={`flex flex-col items-center gap-0.5 rounded-2xl border border-line ${sizeClasses.pad}`}
       style={style}
     >
-      <span className="text-[0.7rem] font-bold uppercase tracking-wide opacity-70">{label}</span>
-      <span className="text-2xl font-extrabold tracking-tight">{grade ?? "—"}</span>
+      <span className={`${sizeClasses.label} font-bold uppercase tracking-wide opacity-70`}>{label}</span>
+      <span className={`${sizeClasses.letter} font-extrabold tracking-tight`}>{grade ?? "—"}</span>
       {score !== null && (
-        <span className="font-mono text-xs tabular-nums opacity-70">{score.toFixed(0)}/100</span>
+        <span className={`font-mono ${sizeClasses.score} tabular-nums opacity-70`}>{score.toFixed(0)}/100</span>
       )}
     </div>
   );
