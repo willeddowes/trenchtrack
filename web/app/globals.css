@@ -17,6 +17,12 @@
   --grade-c: #c9a227;
   --grade-d: #c97a2e;
   --grade-f: #b23a2e;
+
+  /* Conference colors, matching the official NFC/AFC shield logos --
+     used only for the homepage's conference split, not the site's main
+     turf-green accent. */
+  --nfc-accent: #013369;
+  --afc-accent: #d50a0a;
 }
 
 /* Registers the palette above as Tailwind utilities (bg-background,
@@ -36,6 +42,9 @@
   --color-grade-c: var(--grade-c);
   --color-grade-d: var(--grade-d);
   --color-grade-f: var(--grade-f);
+
+  --color-nfc-accent: var(--nfc-accent);
+  --color-afc-accent: var(--afc-accent);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
