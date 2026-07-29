@@ -35,8 +35,9 @@ Three grades per team per week: Pass Block, Run Block, Overall. Every raw stat i
 - **Pass Block**: sack rate 20% / pressure rate allowed 40% / ESPN Pass Block Win Rate 40% (weighted on purpose — pressure rate is a more stable O-line signal than raw sacks, which are partly a QB/scheme stat)
 - **Run Block**: stuff rate / yards before contact per att / ESPN Run Block Win Rate — equal thirds (unweighted so far)
 - Missing ESPN data doesn't break the score — its weight drops out and the rest renormalize.
+- Each of the three blended scores then gets a **second min-max stretch** across that week's 32 teams before mapping to a letter — without this, averaging several already-normalized components compresses everyone toward the middle and nobody ever hits a true 0 or 100 (A+/F sit empty). The stretch guarantees the week's actual best team hits exactly 100 and the actual worst hits exactly 0.
 - Scores map to letters on **equal-width** 13-band scale (not the traditional 60%-is-passing school scale — that would wrongly dump most teams into "F" for a curved score; see docstring).
-- `grade_formula_version` column tracks formula changes (currently `"v2"`).
+- `grade_formula_version` column tracks formula changes (currently `"v3"`).
 
 ## Data model notes
 - `team_ol_stats` stores **weekly history** (one row per team/week, never overwritten) — enables a future "grade over the season" chart.

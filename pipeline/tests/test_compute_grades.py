@@ -4,7 +4,7 @@ database. Run with: venv/bin/pytest tests/ (from the pipeline/ directory)."""
 import pandas as pd
 import pytest
 
-from compute_grades import compute_grades, score_to_letter
+from compute_grades import _weighted_average, compute_grades, score_to_letter
 
 
 def make_stats(rows: list[dict]) -> pd.DataFrame:
@@ -78,31 +78,56 @@ def test_no_espn_data_at_all_still_grades_from_automated_stats():
     assert result.loc["GOOD", "overall_score"] > result.loc["BAD", "overall_score"]
 
 
-def test_pass_block_weighting_is_20_40_40_not_equal_thirds():
-    # Two teams, each the league's best on one side of the profile and
-    # worst on the other -- with only 2 teams, min-max scaling gives each
-    # component a clean 100/0 split, so the resulting pass_block_score
-    # pins down the exact weights in use. Under equal-thirds this would be
-    # 33.3/66.7; under 20/40/40 it must be exactly 20/80.
+def test_weighted_average_applies_given_weights():
+    # Unit-tested directly (not through compute_grades) because
+    # compute_grades' final "stretch" step (see below) re-normalizes the
+    # blended score to span 0-100 across teams, which would obscure the
+    # exact pre-stretch weighting math this test wants to pin down.
+    a = pd.Series([100.0, 0.0])
+    b = pd.Series([0.0, 100.0])
+    result = _weighted_average([(a, 1), (b, 3)])
+    assert result.iloc[0] == pytest.approx(25.0)  # (100*1 + 0*3) / 4
+    assert result.iloc[1] == pytest.approx(75.0)  # (0*1 + 100*3) / 4
+
+
+def test_weighted_average_renormalizes_around_missing_values():
+    a = pd.Series([100.0, None])
+    b = pd.Series([0.0, 50.0])
+    result = _weighted_average([(a, 1), (b, 3)])
+    assert result.iloc[0] == pytest.approx(25.0)  # both present: (100*1 + 0*3) / 4
+    assert result.iloc[1] == pytest.approx(50.0)  # a missing: weight 1 drops out, just b's 50
+
+
+def test_best_and_worst_team_always_hit_true_extremes():
+    # Four teams, none of which sweeps every metric (unlike
+    # test_best_team_beats_worst_team's GOOD/BAD, which are extreme cases
+    # that would score 100/0 even without the stretch step). This is the
+    # realistic case: averaging several components alone would leave
+    # everyone stuck in the middle bands with no A+ or F -- the final
+    # min-max stretch in compute_grades is what fixes that.
     stats = make_stats(
         [
-            {"team_abbr": "SACK_KING", "week": 1, "dropbacks": 100, "sacks_allowed": 1,
-             "pressure_rate_allowed": 0.30, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.0},
-            {"team_abbr": "PRESSURE_KING", "week": 1, "dropbacks": 100, "sacks_allowed": 10,
-             "pressure_rate_allowed": 0.10, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.0},
+            {"team_abbr": "A", "week": 1, "dropbacks": 100, "sacks_allowed": 2,
+             "pressure_rate_allowed": 0.30, "stuff_rate": 0.10, "yards_before_contact_per_att": 3.0},
+            {"team_abbr": "B", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
+             "pressure_rate_allowed": 0.15, "stuff_rate": 0.20, "yards_before_contact_per_att": 2.5},
+            {"team_abbr": "C", "week": 1, "dropbacks": 100, "sacks_allowed": 7,
+             "pressure_rate_allowed": 0.25, "stuff_rate": 0.12, "yards_before_contact_per_att": 2.0},
+            {"team_abbr": "D", "week": 1, "dropbacks": 100, "sacks_allowed": 9,
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.30, "yards_before_contact_per_att": 1.0},
         ]
     )
-    espn = make_stats(
-        [
-            {"team_abbr": "SACK_KING", "pass_block_win_rate": 50, "run_block_win_rate": 60},
-            {"team_abbr": "PRESSURE_KING", "pass_block_win_rate": 70, "run_block_win_rate": 60},
-        ]
-    )
+    espn = make_stats([])
+    espn["team_abbr"] = []
+    espn["pass_block_win_rate"] = []
+    espn["run_block_win_rate"] = []
 
-    result = compute_grades(stats, espn).set_index("team_abbr")
+    result = compute_grades(stats, espn)
 
-    assert result.loc["SACK_KING", "pass_block_score"] == pytest.approx(20.0)
-    assert result.loc["PRESSURE_KING", "pass_block_score"] == pytest.approx(80.0)
+    assert result["overall_score"].max() == pytest.approx(100.0)
+    assert result["overall_score"].min() == pytest.approx(0.0)
+    assert (result["overall_grade"] == "A+").any()
+    assert (result["overall_grade"] == "F").any()
 
 
 def test_score_to_letter_bands():

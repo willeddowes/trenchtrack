@@ -11,11 +11,14 @@
  * how the formula works. Short version: every raw stat is min-max scaled
  * to 0-100 across whichever teams are passed in (best=100, worst=0), then
  * blended into Pass Block (weighted 20/40/40: sack rate / pressure rate /
- * ESPN PBWR) / Run Block (equal-weighted) / Overall scores, mapped to
- * letters on an equal-width 13-band scale.
+ * ESPN PBWR) / Run Block (equal-weighted) / Overall scores -- each of
+ * which then gets a SECOND min-max stretch across all teams (otherwise
+ * averaging multiple components means almost nobody ever hits a true 0
+ * or 100, so A+/F sit empty) -- before being mapped to letters on an
+ * equal-width 13-band scale.
  */
 
-export const GRADE_FORMULA_VERSION = "v2";
+export const GRADE_FORMULA_VERSION = "v3";
 
 // Pass Block component weights -- pressure rate and ESPN's win rate count
 // double a raw sack (sacks are partly a QB-behavior/scheme stat, not
@@ -124,26 +127,33 @@ export function computeGrades(rawStats: TeamRawStats[], espnRates: EspnTeamRate[
   const normalizedPbwr = pbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(pbwr, true);
   const normalizedRbwr = rbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(rbwr, true);
 
-  const passScores = weightedAverage([
+  const rawPassScores = weightedAverage([
     [normalize(sackRates, false), SACK_RATE_WEIGHT],
     [normalize(pressureRates, false), PRESSURE_RATE_WEIGHT],
     [normalizedPbwr, ESPN_PBWR_WEIGHT],
   ]);
   // Run Block stays equal-weighted for now -- passing 1 for every weight
   // makes weightedAverage behave as a plain average.
-  const runScores = weightedAverage([
+  const rawRunScores = weightedAverage([
     [normalize(stuffRates, false), 1],
     [normalize(ybcPerAtt, true), 1],
     [normalizedRbwr, 1],
   ]);
 
+  // Stretch each blended score to span the full 0-100 range across all
+  // teams passed in -- see the module docstring for why (otherwise
+  // almost nobody ever hits a true A+ or F).
+  const passScores = normalize(rawPassScores, true);
+  const runScores = normalize(rawRunScores, true);
+  const rawOverallScores = rawStats.map((_, i) =>
+    passScores[i] !== null && runScores[i] !== null ? (passScores[i]! + runScores[i]!) / 2 : null
+  );
+  const overallScores = normalize(rawOverallScores, true);
+
   return rawStats.map((team, i) => {
     const pass_block_score = passScores[i];
     const run_block_score = runScores[i];
-    const overall_score =
-      pass_block_score !== null && run_block_score !== null
-        ? (pass_block_score + run_block_score) / 2
-        : null;
+    const overall_score = overallScores[i];
 
     return {
       team_abbr: team.team_abbr,
