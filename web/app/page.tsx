@@ -42,7 +42,7 @@ export default async function HomePage() {
   const worst = graded.length ? graded.reduce((a, b) => (b.overall_score! < a.overall_score! ? b : a)) : null;
 
   return (
-    <main className="mx-auto max-w-7xl space-y-8 p-8">
+    <main className="mx-auto max-w-[96rem] space-y-8 p-8">
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight">Offensive line grades</h1>
         <p className="text-ink-muted">{CURRENT_SEASON} season &middot; updated weekly</p>

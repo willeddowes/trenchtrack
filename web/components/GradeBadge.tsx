@@ -19,11 +19,13 @@ export function GradeBadge({
   grade,
   score,
   size = "md",
+  className = "",
 }: {
   label: string;
   grade: string | null;
   score: number | null;
   size?: "md" | "sm";
+  className?: string;
 }) {
   const colorVar = grade ? GRADE_COLOR_VARS[grade[0]] : undefined;
   const style = colorVar
@@ -36,7 +38,7 @@ export function GradeBadge({
 
   return (
     <div
-      className={`flex flex-col items-center gap-0.5 rounded-2xl border border-line ${sizeClasses.pad}`}
+      className={`flex flex-col items-center gap-0.5 rounded-2xl border border-line ${sizeClasses.pad} ${className}`}
       style={style}
     >
       <span className={`${sizeClasses.label} font-bold uppercase tracking-wide opacity-70`}>{label}</span>
