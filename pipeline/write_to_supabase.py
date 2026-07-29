@@ -41,10 +41,13 @@ def upsert_players(client: Client, rows: list[dict]) -> None:
     client.table("players").upsert(_records(rows), on_conflict="player_id").execute()
 
 
-def upsert_ol_starters(client: Client, rows: list[dict]) -> None:
-    if not rows:
-        return
-    client.table("ol_starters").upsert(_records(rows), on_conflict="team_abbr,position").execute()
+def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> None:
+    """Like replace_injuries -- each run replaces the whole season's ranked
+    list, since the shape of the ranking (how many backups logged snaps at
+    a position) can legitimately change between runs."""
+    client.table("ol_depth_chart").delete().eq("season", season).execute()
+    if rows:
+        client.table("ol_depth_chart").insert(_records(rows)).execute()
 
 
 def replace_injuries(client: Client, season: int, rows: list[dict]) -> None:

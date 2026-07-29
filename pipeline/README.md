@@ -27,13 +27,15 @@ Run the tests with `venv/bin/pytest tests/`.
 
 ## What "current" means for each table
 
-- **players / ol_starters / injuries**: always overwritten with the latest
-  snapshot on every run -- these answer "who/what right now", not history.
-- **team_ol_stats**: the opposite -- every week gets its own row, kept
-  forever, so a future "grade over the season" chart has real data to draw
-  from. Each week's numbers are cumulative through that point in the season
-  (season_type == 'REG' only; playoffs are excluded so playoff teams don't
-  get extra games stacked onto their stats).
+- **players / injuries**: always overwritten with the latest snapshot on
+  every run -- these answer "who/what right now", not history.
+- **team_ol_stats / ol_depth_chart**: the opposite -- real season history,
+  kept forever (team_ol_stats gets one row per team per week, so a future
+  "grade over the season" chart has real data to draw from; ol_depth_chart
+  ranks every player who logged snaps at a position that season). Each
+  week's team_ol_stats numbers are cumulative through that point in the
+  season (season_type == 'REG' only; playoffs are excluded so playoff teams
+  don't get extra games stacked onto their stats).
 
 ## Where each stat comes from
 

@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTeamPageData } from "@/lib/getTeamPageData";
-import { CURRENT_SEASON, SUPPORTED_SEASONS, TEAM_SLUGS } from "@/lib/teamsStatic";
+import { CURRENT_SEASON, SUPPORTED_SEASONS, TEAM_SLUGS, TEAMS } from "@/lib/teamsStatic";
 import { ordinal } from "@/lib/formatRank";
 import { GradeBadge } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
+import { SeasonTabs } from "@/components/SeasonTabs";
 
 // Prebuilds every team x season combination at build time; Next.js
 // regenerates each page in the background at most once a day after that
@@ -22,6 +24,16 @@ export const dynamicParams = false;
 
 export const revalidate = 86400; // regenerate at most once a day
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; season: string }>;
+}): Promise<Metadata> {
+  const { slug, season } = await params;
+  const team = TEAMS.find((t) => t.slug === slug);
+  return { title: team ? `${team.name} - ${season}` : "TrenchTrack" };
+}
+
 export default async function TeamPage({
   params,
 }: {
@@ -35,18 +47,28 @@ export default async function TeamPage({
   const data = await getTeamPageData(slug, season);
   if (!data) notFound();
 
-  const { team, stats, starters, injuries, espnTeamRates } = data;
+  const { team, stats, depthChart, injuries, espnTeamRates } = data;
   const isCurrentSeason = season === CURRENT_SEASON;
+
+  const positionOrder = ["LT", "LG", "C", "RG", "RT"];
+  const depthChartByPosition = positionOrder.map((position) => ({
+    position,
+    starter: depthChart.find((d) => d.position === position && d.depth_rank === 1) ?? null,
+    backup: depthChart.find((d) => d.position === position && d.depth_rank === 2) ?? null,
+  }));
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 p-8">
       <header className="flex items-center gap-4">
         <TeamLogo team={team} size={72} />
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">{team.team_name}</h1>
-          <p className="text-sm text-ink-muted">
-            {team.division} - {season} season
-          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            {team.team_name} <span className="text-base font-bold text-ink-muted">- {season}</span>
+          </h1>
+          <p className="text-sm text-ink-muted">{team.division}</p>
+          <div className="mt-2">
+            <SeasonTabs slug={slug} activeSeason={season} seasons={SUPPORTED_SEASONS} />
+          </div>
         </div>
       </header>
 
@@ -114,42 +136,70 @@ export default async function TeamPage({
         </div>
       )}
 
-      {isCurrentSeason && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <section className="rounded-2xl border border-line bg-surface p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Current Offensive Line</h2>
-            {starters.length > 0 ? (
-              <ul className="mt-3 divide-y divide-line">
-                {starters.map((s) => (
-                  <li key={s.position} className="flex items-center gap-3 py-2">
+      {depthChart.length > 0 && (
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+            Offensive Line Depth Chart &middot; by snaps played
+          </h2>
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs font-bold uppercase tracking-wide text-ink-muted">
+                <th className="pb-2 pr-2 font-bold">Pos</th>
+                <th className="pb-2 pr-2 font-bold">Starter</th>
+                <th className="pb-2 font-bold">Backup</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {depthChartByPosition.map(({ position, starter, backup }) => (
+                <tr key={position}>
+                  <td className="py-2 pr-2 align-top">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-xs font-bold text-ink-muted">
-                      {s.position}
+                      {position}
                     </span>
-                    <span className="font-semibold">{s.player_name}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-ink-muted">No starting lineup available yet.</p>
-            )}
-          </section>
+                  </td>
+                  <td className="py-2 pr-2 align-top">
+                    {starter ? (
+                      <>
+                        <span className="font-semibold">{starter.player_name}</span>
+                        <span className="ml-1 text-ink-muted">({starter.snaps} snaps)</span>
+                      </>
+                    ) : (
+                      <span className="text-ink-muted">&mdash;</span>
+                    )}
+                  </td>
+                  <td className="py-2 align-top">
+                    {backup ? (
+                      <>
+                        <span className="font-semibold">{backup.player_name}</span>
+                        <span className="ml-1 text-ink-muted">({backup.snaps} snaps)</span>
+                      </>
+                    ) : (
+                      <span className="text-ink-muted">&mdash;</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
-          <section className="rounded-2xl border border-line bg-surface p-5">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">OL Injury Report</h2>
-            {injuries.length > 0 ? (
-              <ul className="mt-3 divide-y divide-line">
-                {injuries.map((i, idx) => (
-                  <li key={idx} className="py-2">
-                    <span className="font-semibold">{i.player_name}</span> ({i.position}) &mdash; {i.status}
-                    {i.injury_description ? `: ${i.injury_description}` : ""}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-ink-muted">No OL injuries reported.</p>
-            )}
-          </section>
-        </div>
+      {isCurrentSeason && (
+        <section className="rounded-2xl border border-line bg-surface p-5">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">OL Injury Report</h2>
+          {injuries.length > 0 ? (
+            <ul className="mt-3 divide-y divide-line">
+              {injuries.map((i, idx) => (
+                <li key={idx} className="py-2">
+                  <span className="font-semibold">{i.player_name}</span> ({i.position}) &mdash; {i.status}
+                  {i.injury_description ? `: ${i.injury_description}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-ink-muted">No OL injuries reported.</p>
+          )}
+        </section>
       )}
     </main>
   );

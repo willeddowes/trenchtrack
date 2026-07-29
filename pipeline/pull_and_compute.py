@@ -3,16 +3,18 @@
     venv/bin/python pull_and_compute.py
 
 What it does, in order:
-  1. Pulls the current roster, O-line depth chart, and injury report from
-     nflreadpy and writes them straight to Supabase (these are simple
-     "current snapshot" overwrites -- see write_to_supabase.py).
-  2. Pulls the season's raw O-line stats (sacks, pressure, stuff rate,
+  1. Pulls the current roster and injury report from nflreadpy and writes
+     them straight to Supabase (simple "current snapshot" overwrites --
+     see write_to_supabase.py).
+  2. Pulls the season's O-line depth chart -- every player who's logged
+     snaps at each position so far this season, ranked by snap count.
+  3. Pulls the season's raw O-line stats (sacks, pressure, stuff rate,
      yards before contact), one row per team per week.
-  3. Reads back whatever ESPN win-rate numbers you've entered so far via
+  4. Reads back whatever ESPN win-rate numbers you've entered so far via
      the /internal/espn-entry page.
-  4. Runs compute_grades.py to turn (2) + (3) into the three letter grades,
+  5. Runs compute_grades.py to turn (3) + (4) into the three letter grades,
      for every team, for every week of the season so far.
-  5. Writes all of that to team_ol_stats.
+  6. Writes all of that to team_ol_stats.
 
 Safe to re-run any time (weekly during the season is the plan) -- every
 write is either an upsert or a clean delete-and-replace, so running this
@@ -23,14 +25,14 @@ import nflreadpy as nfl
 
 from compute_grades import compute_grades
 from steps.pull_injuries import pull_injuries
-from steps.pull_ol_starters import pull_ol_starters
+from steps.pull_ol_depth_chart import DepthChartNotArchivedError, pull_season_ol_depth_chart
 from steps.pull_players import pull_players
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
     fetch_espn_team_rates,
     get_client,
     replace_injuries,
-    upsert_ol_starters,
+    replace_ol_depth_chart,
     upsert_players,
     upsert_team_ol_stats,
 )
@@ -46,8 +48,12 @@ def main() -> None:
     print("Pulling players...")
     upsert_players(client, pull_players(season))
 
-    print("Pulling O-line starters...")
-    upsert_ol_starters(client, pull_ol_starters(season, current_week))
+    print("Pulling O-line depth chart (snap counts by position)...")
+    try:
+        depth_chart = pull_season_ol_depth_chart(season)
+        replace_ol_depth_chart(client, season, depth_chart.to_dict(orient="records"))
+    except DepthChartNotArchivedError as e:
+        print(f"Skipping depth chart: {e}")
 
     print("Pulling injuries...")
     replace_injuries(client, season, pull_injuries(season))

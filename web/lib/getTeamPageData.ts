@@ -29,7 +29,7 @@ export type TeamPageData = {
     overall_score: number | null;
     overall_grade: string | null;
   } | null;
-  starters: { position: string; player_name: string }[];
+  depthChart: { position: string; depth_rank: number; player_name: string; snaps: number }[];
   injuries: { player_name: string; position: string | null; status: string | null; injury_description: string | null }[];
   espnTeamRates: {
     pass_block_win_rate: number | null;
@@ -52,7 +52,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
 
   if (!team) return null;
 
-  const [{ data: statsRows }, { data: starters }, { data: injuries }, leagueStats, leagueEspnRates] =
+  const [{ data: statsRows }, { data: depthChart }, { data: injuries }, leagueStats, leagueEspnRates] =
     await Promise.all([
       supabase
         .from("team_ol_stats")
@@ -64,9 +64,10 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
         .order("week", { ascending: false })
         .limit(1),
       supabase
-        .from("ol_starters")
-        .select("position, player_name")
-        .eq("team_abbr", team.team_abbr),
+        .from("ol_depth_chart")
+        .select("position, depth_rank, player_name, snaps")
+        .eq("team_abbr", team.team_abbr)
+        .eq("season", season),
       supabase
         .from("injuries")
         .select("player_name, position, status, injury_description")
@@ -90,8 +91,8 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
           yards_before_contact_per_att_rank: leagueStats?.yards_before_contact_per_att_rank ?? null,
         }
       : null,
-    starters: (starters ?? []).sort(
-      (a, b) => positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position)
+    depthChart: (depthChart ?? []).sort(
+      (a, b) => positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position) || a.depth_rank - b.depth_rank
     ),
     injuries: injuries ?? [],
     espnTeamRates: leagueEspnRates,

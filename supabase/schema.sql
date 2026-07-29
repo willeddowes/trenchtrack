@@ -42,21 +42,32 @@ create table if not exists players (
 );
 
 -- ============================================================================
--- ol_starters: the CURRENT starting offensive line, one row per team per
--- position. This intentionally only stores the latest depth chart (not
--- week-by-week history) -- it answers "who starts today", not "who started
--- in week 6". The pipeline overwrites these 5 rows per team every run.
+-- ol_depth_chart: per team, per season, per position -- every player who
+-- logged offense snaps at that position that season, ranked by total snaps
+-- (depth_rank 1 = most snaps, 2 = next-most, etc). Unlike a live depth chart
+-- snapshot, this is real season history: it answers "who actually played
+-- the most at RT in 2023", not just "who's listed as the starter today".
+-- The pipeline replaces a season's full set of rows each time it's computed
+-- (see replace_ol_depth_chart), since the ranked list can legitimately
+-- change shape (a new backup logging snaps, etc) between runs.
 -- ============================================================================
-create table if not exists ol_starters (
+create table if not exists ol_depth_chart (
   team_abbr text not null references teams (team_abbr),
+  season int not null,
   position text not null check (position in ('LT', 'LG', 'C', 'RG', 'RT')),
-  player_id text references players (player_id),
+  depth_rank int not null,
+  player_id text,                    -- no FK to players -- that table only
+                                      -- holds the CURRENT roster, but this
+                                      -- table spans every past season, so a
+                                      -- retired/departed player's id would
+                                      -- otherwise fail the constraint
   player_name text not null,         -- denormalized so the page still shows a
                                       -- name even if the player_id join misses
-  season int not null,
-  as_of_week int not null,
-  primary key (team_abbr, position)
+  snaps int not null,
+  primary key (team_abbr, season, position, depth_rank)
 );
+
+alter table ol_depth_chart drop constraint if exists ol_depth_chart_player_id_fkey;
 
 -- ============================================================================
 -- injuries: the CURRENT OL injury report per team. Like ol_starters, this is
@@ -168,7 +179,7 @@ create table if not exists espn_player_block_win_rates (
 -- ============================================================================
 alter table teams enable row level security;
 alter table players enable row level security;
-alter table ol_starters enable row level security;
+alter table ol_depth_chart enable row level security;
 alter table injuries enable row level security;
 alter table team_ol_stats enable row level security;
 alter table espn_team_block_win_rates enable row level security;
@@ -180,8 +191,8 @@ create policy "public read access" on teams for select using (true);
 drop policy if exists "public read access" on players;
 create policy "public read access" on players for select using (true);
 
-drop policy if exists "public read access" on ol_starters;
-create policy "public read access" on ol_starters for select using (true);
+drop policy if exists "public read access" on ol_depth_chart;
+create policy "public read access" on ol_depth_chart for select using (true);
 
 drop policy if exists "public read access" on injuries;
 create policy "public read access" on injuries for select using (true);
@@ -209,7 +220,7 @@ grant usage on schema public to anon, authenticated;
 grant select on
   teams,
   players,
-  ol_starters,
+  ol_depth_chart,
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
@@ -224,7 +235,7 @@ grant usage on schema public to service_role;
 grant select, insert, update, delete on
   teams,
   players,
-  ol_starters,
+  ol_depth_chart,
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,

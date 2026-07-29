@@ -19,10 +19,20 @@ Data sources, and why each one is used:
   - load_pbp(): the only source with individual plays, needed to compute
     "stuff rate" (share of rush attempts stopped at or behind the line) --
     no dataset publishes that as a precomputed stat.
+
+load_team_stats() and load_pbp() already normalize team codes to the
+franchise's CURRENT abbreviation, even retroactively for old seasons, but
+load_pfr_advstats() doesn't -- it still tags 2018-2019 Raiders rows "OAK"
+(they only became "LV" in 2020). Left alone, that mismatch means those two
+seasons' Raiders rows never join against the other sources, silently
+zeroing out their pressure/rush-before-contact stats. Remap known
+historical codes before merging so every source agrees.
 """
 
 import nflreadpy as nfl
 import pandas as pd
+
+HISTORICAL_TEAM_CODES = {"OAK": "LV"}
 
 
 def pull_team_ol_stats_raw(season: int) -> pd.DataFrame:
@@ -32,12 +42,14 @@ def pull_team_ol_stats_raw(season: int) -> pd.DataFrame:
 
     pfr_pass = nfl.load_pfr_advstats(seasons=season, stat_type="pass", summary_level="week").to_pandas()
     pfr_pass = pfr_pass[pfr_pass["game_type"] == "REG"]
+    pfr_pass["team"] = pfr_pass["team"].replace(HISTORICAL_TEAM_CODES)
     pressure_by_week = (
         pfr_pass.groupby(["team", "week"], as_index=False)["times_pressured"].sum()
     )
 
     pfr_rush = nfl.load_pfr_advstats(seasons=season, stat_type="rush", summary_level="week").to_pandas()
     pfr_rush = pfr_rush[pfr_rush["game_type"] == "REG"]
+    pfr_rush["team"] = pfr_rush["team"].replace(HISTORICAL_TEAM_CODES)
     rush_by_week = pfr_rush.groupby(["team", "week"], as_index=False).agg(
         pfr_carries=("carries", "sum"),
         rushing_yards_before_contact=("rushing_yards_before_contact", "sum"),
