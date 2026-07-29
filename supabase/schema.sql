@@ -215,3 +215,18 @@ grant select on
   espn_team_block_win_rates,
   espn_player_block_win_rates
 to anon, authenticated;
+
+-- service_role is meant to bypass RLS and have full write access -- but it
+-- turns out that same "auto-expose" setting also skips granting it table
+-- privileges by default, so it needs the same explicit treatment here.
+grant usage on schema public to service_role;
+
+grant select, insert, update, delete on
+  teams,
+  players,
+  ol_starters,
+  injuries,
+  team_ol_stats,
+  espn_team_block_win_rates,
+  espn_player_block_win_rates
+to service_role;

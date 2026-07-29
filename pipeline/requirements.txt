@@ -1,0 +1,6 @@
+nflreadpy
+pandas
+pyarrow
+supabase
+python-dotenv
+pytest
