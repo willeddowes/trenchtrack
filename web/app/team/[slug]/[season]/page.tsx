@@ -39,13 +39,13 @@ export default async function TeamPage({
   const isCurrentSeason = season === CURRENT_SEASON;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 p-8">
+    <main className="mx-auto max-w-5xl space-y-8 p-8">
       <header className="flex items-center gap-4">
         <TeamLogo team={team} size={72} />
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">{team.team_name}</h1>
           <p className="text-sm text-ink-muted">
-            {team.conference} &middot; {team.division} &middot; {season} season
+            {team.division} - {season} season
           </p>
         </div>
       </header>
@@ -115,7 +115,7 @@ export default async function TeamPage({
       )}
 
       {isCurrentSeason && (
-        <>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <section className="rounded-2xl border border-line bg-surface p-5">
             <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Current Offensive Line</h2>
             {starters.length > 0 ? (
@@ -149,7 +149,7 @@ export default async function TeamPage({
               <p className="mt-2 text-ink-muted">No OL injuries reported.</p>
             )}
           </section>
-        </>
+        </div>
       )}
     </main>
   );
@@ -157,7 +157,12 @@ export default async function TeamPage({
 
 /** One row inside a metrics section: a label, its value, and its league
  * rank (e.g. "35 (12th)"). ESPN-sourced rows spell that out in the label
- * itself ("ESPN Pass Blk Win Rate"), so there's no separate source tag. */
+ * itself ("ESPN Pass Blk Win Rate"), so there's no separate source tag.
+ *
+ * The value is colored using the same green/red tokens as the grade
+ * badges: top half of the 32-team league (rank 16 or better) is "good"
+ * (green), bottom half is "bad" (red). No rank yet (e.g. ESPN data not
+ * entered) stays neutral. */
 function MetricRow({
   label,
   value,
@@ -167,12 +172,17 @@ function MetricRow({
   value: string;
   rank: number | null;
 }) {
+  const colorVar = rank === null ? null : rank <= 16 ? "--grade-a" : "--grade-f";
+
   return (
     <div className="flex items-baseline justify-between gap-4 py-2">
       <dt>{label}</dt>
-      <dd className="shrink-0 font-mono tabular-nums">
+      <dd
+        className="shrink-0 font-mono font-bold tabular-nums"
+        style={colorVar ? { color: `var(${colorVar})` } : undefined}
+      >
         {value}
-        {rank !== null && <span className="ml-1 text-ink-muted">({ordinal(rank)})</span>}
+        {rank !== null && <span className="ml-1 font-normal text-ink-muted">({ordinal(rank)})</span>}
       </dd>
     </div>
   );
