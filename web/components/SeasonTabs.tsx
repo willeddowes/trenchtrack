@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 export function SeasonTabs({
-  slug,
+  basePath,
   activeSeason,
   seasons,
 }: {
-  slug: string;
+  basePath: string;
   activeSeason: number;
   seasons: number[];
 }) {
@@ -18,7 +18,7 @@ export function SeasonTabs({
         return (
           <Link
             key={season}
-            href={`/team/${slug}/${season}`}
+            href={`${basePath}/${season}`}
             className={
               isActive
                 ? "rounded-full bg-accent px-3 py-1 text-sm font-bold text-accent-ink"

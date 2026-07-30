@@ -1,7 +1,8 @@
 // Colors are picked from the first letter of the grade (A/B/C/D/F) -- the
 // +/- doesn't change the color, just the letter shown. Uses the "turf to
-// rust" grade ramp defined as CSS variables in globals.css.
-const GRADE_COLOR_VARS: Record<string, string> = {
+// rust" grade ramp defined as CSS variables in globals.css. Exported so
+// other grade-colored visuals (e.g. the stats bar chart) stay in sync.
+export const GRADE_COLOR_VARS: Record<string, string> = {
   A: "--grade-a",
   B: "--grade-b",
   C: "--grade-c",

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getHomepageTeamsData, type HomepageTeam } from "@/lib/getHomepageData";
 import { CURRENT_SEASON } from "@/lib/teamsStatic";
-import { GradeBadge } from "@/components/GradeBadge";
+import { GRADE_COLOR_VARS } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
 
 export const revalidate = 86400;
@@ -37,10 +37,6 @@ export default async function HomePage() {
   const teams = await getHomepageTeamsData(CURRENT_SEASON);
   const byDivision = groupByDivision(teams);
 
-  const graded = teams.filter((t) => t.overall_score !== null);
-  const best = graded.length ? graded.reduce((a, b) => (b.overall_score! > a.overall_score! ? b : a)) : null;
-  const worst = graded.length ? graded.reduce((a, b) => (b.overall_score! < a.overall_score! ? b : a)) : null;
-
   return (
     <main className="mx-auto max-w-[96rem] space-y-8 p-8">
       <div>
@@ -48,34 +44,11 @@ export default async function HomePage() {
         <p className="text-ink-muted">{CURRENT_SEASON} season &middot; updated weekly</p>
       </div>
 
-      {(best || worst) && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {best && (
-            <div className="rounded-2xl border border-line bg-surface p-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">🏆 Best O-line</p>
-              <p className="mt-1 text-2xl font-extrabold">{best.team_nickname}</p>
-              <p className="font-mono text-sm text-ink-muted">
-                {best.overall_grade} &middot; {best.overall_score!.toFixed(0)}/100
-              </p>
-            </div>
-          )}
-          {worst && (
-            <div className="rounded-2xl border border-line bg-surface p-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">📉 Needs work</p>
-              <p className="mt-1 text-2xl font-extrabold">{worst.team_nickname}</p>
-              <p className="font-mono text-sm text-ink-muted">
-                {worst.overall_grade} &middot; {worst.overall_score!.toFixed(0)}/100
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {CONFERENCES.map((conf) => (
           <div
             key={conf.key}
-            className={conf.key === "NFC" ? "border-l-4 pl-5 sm:pl-6" : "border-r-4 pr-5 sm:pr-6"}
+            className="rounded-2xl border-2 p-5 sm:p-6"
             style={{ borderColor: conf.accent }}
           >
             <div className="mb-4 flex items-center gap-3">
@@ -84,22 +57,32 @@ export default async function HomePage() {
                 {conf.key}
               </h2>
             </div>
-            <div className="space-y-6">
+            <div className="space-y-3">
               {conf.divisions.map((division) => (
                 <section key={division}>
-                  <h3 className="mb-2 text-sm font-bold">{division}</h3>
-                  <div className="grid grid-cols-4 gap-2">
-                    {byDivision.get(division)?.map((team) => (
-                      <Link
-                        key={team.slug}
-                        href={`/team/${team.slug}/${CURRENT_SEASON}`}
-                        className="flex flex-col items-center gap-1 rounded-xl border border-line bg-surface p-2 hover:border-accent"
-                      >
-                        <TeamLogo team={team} size={36} />
-                        <span className="text-center text-xs font-bold leading-tight">{team.team_nickname}</span>
-                        <GradeBadge label="Overall" grade={team.overall_grade} score={team.overall_score} size="sm" />
-                      </Link>
-                    ))}
+                  <h3 className="mb-1 text-xs font-bold">{division}</h3>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {byDivision.get(division)?.map((team) => {
+                      const colorVar = team.overall_grade ? GRADE_COLOR_VARS[team.overall_grade[0]] : undefined;
+                      return (
+                        <Link
+                          key={team.slug}
+                          href={`/team/${team.slug}/${CURRENT_SEASON}`}
+                          className="flex flex-col items-center gap-0.5 rounded-lg border border-line bg-surface p-1 hover:border-accent"
+                        >
+                          <TeamLogo team={team} size={18} />
+                          <span className="w-full truncate text-center text-[0.65rem] font-bold leading-tight">
+                            {team.team_nickname}
+                          </span>
+                          <span
+                            className="text-xs font-extrabold leading-tight"
+                            style={{ color: colorVar ? `var(${colorVar})` : "var(--ink-muted)" }}
+                          >
+                            {team.overall_grade ?? "—"}
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </section>
               ))}

@@ -68,7 +68,7 @@ export default async function TeamPage({
           </div>
           <p className="text-xs text-ink-muted">{team.division}</p>
         </div>
-        <SeasonTabs slug={slug} activeSeason={season} seasons={SUPPORTED_SEASONS} />
+        <SeasonTabs basePath={`/team/${slug}`} activeSeason={season} seasons={SUPPORTED_SEASONS} />
       </header>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_1fr_1fr]">
