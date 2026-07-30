@@ -29,7 +29,7 @@ export type TeamPageData = {
     overall_score: number | null;
     overall_grade: string | null;
   } | null;
-  depthChart: { position: string; depth_rank: number; player_name: string; snaps: number }[];
+  depthChart: { position: string; depth_rank: number; player_name: string; snaps: number; honors: string[] }[];
   injuries: { player_name: string; position: string | null; status: string | null; injury_description: string | null }[];
   espnTeamRates: {
     pass_block_win_rate: number | null;
@@ -52,7 +52,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
 
   if (!team) return null;
 
-  const [{ data: statsRows }, { data: depthChart }, { data: injuries }, leagueStats, leagueEspnRates] =
+  const [{ data: statsRows }, { data: depthChart }, { data: injuries }, { data: honors }, leagueStats, leagueEspnRates] =
     await Promise.all([
       supabase
         .from("team_ol_stats")
@@ -73,12 +73,24 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
         .select("player_name, position, status, injury_description")
         .eq("team_abbr", team.team_abbr)
         .eq("season", season),
+      supabase
+        .from("player_honors")
+        .select("player_name, honor")
+        .eq("team_abbr", team.team_abbr)
+        .eq("season", season),
       getLeagueStatRanks(supabase, season, team.team_abbr),
       getLeagueEspnRanks(supabase, season, team.team_abbr),
     ]);
 
   const positionOrder = ["LT", "LG", "C", "RG", "RT"];
   const rawStats = statsRows?.[0] ?? null;
+
+  const honorsByPlayer = new Map<string, string[]>();
+  for (const h of honors ?? []) {
+    const existing = honorsByPlayer.get(h.player_name) ?? [];
+    existing.push(h.honor);
+    honorsByPlayer.set(h.player_name, existing);
+  }
 
   return {
     team,
@@ -91,9 +103,11 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
           yards_before_contact_per_att_rank: leagueStats?.yards_before_contact_per_att_rank ?? null,
         }
       : null,
-    depthChart: (depthChart ?? []).sort(
-      (a, b) => positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position) || a.depth_rank - b.depth_rank
-    ),
+    depthChart: (depthChart ?? [])
+      .map((row) => ({ ...row, honors: honorsByPlayer.get(row.player_name) ?? [] }))
+      .sort(
+        (a, b) => positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position) || a.depth_rank - b.depth_rank
+      ),
     injuries: injuries ?? [],
     espnTeamRates: leagueEspnRates,
   };

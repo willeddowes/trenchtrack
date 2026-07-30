@@ -6,6 +6,7 @@ import { ordinal } from "@/lib/formatRank";
 import { GradeBadge } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
 import { SeasonTabs } from "@/components/SeasonTabs";
+import { HonorBadge } from "@/components/HonorBadge";
 
 // Prebuilds every team x season combination at build time; Next.js
 // regenerates each page in the background at most once a day after that
@@ -171,20 +172,26 @@ export default async function TeamPage({
                   </td>
                   <td className="py-1.5 pr-2 align-top">
                     {starter ? (
-                      <>
+                      <div className="flex flex-wrap items-center gap-1">
                         <span className="font-semibold">{starter.player_name}</span>
-                        <span className="ml-1 text-ink-muted">({starter.snaps} snaps)</span>
-                      </>
+                        <span className="text-ink-muted">({starter.snaps} snaps)</span>
+                        {starter.honors.map((h) => (
+                          <HonorBadge key={h} honor={h} />
+                        ))}
+                      </div>
                     ) : (
                       <span className="text-ink-muted">&mdash;</span>
                     )}
                   </td>
                   <td className="py-1.5 align-top">
                     {backup ? (
-                      <>
+                      <div className="flex flex-wrap items-center gap-1">
                         <span className="font-semibold">{backup.player_name}</span>
-                        <span className="ml-1 text-ink-muted">({backup.snaps} snaps)</span>
-                      </>
+                        <span className="text-ink-muted">({backup.snaps} snaps)</span>
+                        {backup.honors.map((h) => (
+                          <HonorBadge key={h} honor={h} />
+                        ))}
+                      </div>
                     ) : (
                       <span className="text-ink-muted">&mdash;</span>
                     )}

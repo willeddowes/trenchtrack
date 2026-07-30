@@ -172,6 +172,23 @@ create table if not exists espn_player_block_win_rates (
 );
 
 -- ============================================================================
+-- player_honors: Pro Bowl and AP All-Pro selections, hand-researched and
+-- entered season by season (nflreadpy doesn't carry this) -- same category
+-- as espn_team_block_win_rates above: manually curated, not pipeline-computed.
+-- A player can earn both honors in the same season (common for the best
+-- players), hence `honor` is part of the primary key rather than a single
+-- column per player-season.
+-- ============================================================================
+create table if not exists player_honors (
+  season int not null,
+  team_abbr text not null references teams (team_abbr),
+  player_name text not null,
+  position text,
+  honor text not null check (honor in ('pro_bowl', 'all_pro_1st', 'all_pro_2nd')),
+  primary key (season, team_abbr, player_name, honor)
+);
+
+-- ============================================================================
 -- Row Level Security: lock every table down, then open read-only access to
 -- the public `anon` key. The service_role key (used server-side by the
 -- pipeline and the /api/espn-entry route) always bypasses RLS, so it can
@@ -184,6 +201,7 @@ alter table injuries enable row level security;
 alter table team_ol_stats enable row level security;
 alter table espn_team_block_win_rates enable row level security;
 alter table espn_player_block_win_rates enable row level security;
+alter table player_honors enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -206,6 +224,9 @@ create policy "public read access" on espn_team_block_win_rates for select using
 drop policy if exists "public read access" on espn_player_block_win_rates;
 create policy "public read access" on espn_player_block_win_rates for select using (true);
 
+drop policy if exists "public read access" on player_honors;
+create policy "public read access" on player_honors for select using (true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -224,7 +245,8 @@ grant select on
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
-  espn_player_block_win_rates
+  espn_player_block_win_rates,
+  player_honors
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -239,5 +261,6 @@ grant select, insert, update, delete on
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
-  espn_player_block_win_rates
+  espn_player_block_win_rates,
+  player_honors
 to service_role;
