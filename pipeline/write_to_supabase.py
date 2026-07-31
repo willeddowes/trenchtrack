@@ -76,6 +76,30 @@ def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> Non
         client.table("ol_depth_chart").insert(_records(rows)).execute()
 
 
+def fetch_ol_depth_chart(client: Client, seasons: list[int]) -> pd.DataFrame:
+    """Reads back our own stored O-line depth-chart history for the given
+    seasons -- used by pull_free_agency_moves.py to find each player's real
+    past snap totals (a read of already-computed data, not a fresh nflreadpy
+    pull)."""
+    resp = (
+        client.table("ol_depth_chart")
+        .select("team_abbr,season,player_id,player_name,snaps")
+        .in_("season", seasons)
+        .execute()
+    )
+    if not resp.data:
+        return pd.DataFrame(columns=["team_abbr", "season", "player_id", "player_name", "snaps"])
+    return pd.DataFrame(resp.data)
+
+
+def replace_free_agency_moves(client: Client, season: int, rows: list[dict]) -> None:
+    """Same delete-and-replace pattern as replace_ol_depth_chart -- each run
+    recomputes the full gained/lost list for the season being previewed."""
+    client.table("ol_free_agency_moves").delete().eq("season", season).execute()
+    if rows:
+        client.table("ol_free_agency_moves").insert(_records(rows)).execute()
+
+
 def replace_injuries(client: Client, season: int, rows: list[dict]) -> None:
     """Injuries aren't upserted -- each run replaces the whole current
     report for the season, since last week's "Questionable" tag shouldn't

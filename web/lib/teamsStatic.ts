@@ -3,7 +3,7 @@
 // seasons we support essentially never changes week to week.
 
 export const CURRENT_SEASON = 2025;
-export const SUPPORTED_SEASONS = [2021, 2022, 2023, 2024, 2025];
+export const SUPPORTED_SEASONS = [2021, 2022, 2023, 2024, 2025, 2026];
 
 // Slug + display name for each team, so the header search box works
 // without a database round-trip on every single page load.

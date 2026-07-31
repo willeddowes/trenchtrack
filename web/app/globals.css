@@ -18,6 +18,17 @@
   --grade-d: #c97a2e;
   --grade-f: #b23a2e;
 
+  /* Categorical trio for the team-page grade trend chart (Overall/Pass/Run
+     as 3 distinct series, not a magnitude ramp) -- deliberately outside the
+     green/gold/orange/red grade ramp above so the two never get confused on
+     the same page. Validated with the dataviz skill's validate_palette.js
+     (light mode, #ffffff surface): all CVD/lightness/chroma checks pass;
+     --series-run sits at 2.69:1 contrast (a WARN, not a fail) which is why
+     it always ships with a direct grade-letter label, never color alone. */
+  --series-overall: #2a78d6;
+  --series-pass: #4a3aa7;
+  --series-run: #e87ba4;
+
   /* Conference colors, matching the official NFC/AFC shield logos --
      used only for the homepage's conference split, not the site's main
      turf-green accent. */

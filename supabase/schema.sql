@@ -81,11 +81,39 @@ create table if not exists ol_depth_chart (
                                       -- otherwise fail the constraint
   player_name text not null,         -- denormalized so the page still shows a
                                       -- name even if the player_id join misses
-  snaps int not null,
+  snaps int,                         -- nullable: a PROJECTED depth chart (a
+                                      -- season with no games played yet, e.g.
+                                      -- the year before it starts) has no
+                                      -- real snap count to rank by -- see
+                                      -- pull_projected_depth_chart.py
   primary key (team_abbr, season, position, depth_rank)
 );
 
+alter table ol_depth_chart alter column snaps drop not null;
 alter table ol_depth_chart drop constraint if exists ol_depth_chart_player_id_fkey;
+
+-- ============================================================================
+-- ol_free_agency_moves: for a season being PREVIEWED before it starts, the
+-- meaningful (300+ snap) O-line players a team gained or lost this offseason.
+-- Derived entirely from data already in this database (ol_depth_chart's past
+-- two seasons of real snap totals) cross-referenced with nflreadpy's current
+-- roster -- not hand-researched, see pull_free_agency_moves.py. Each move is
+-- stored from BOTH sides (a "lost" row for the old team, a "gained" row for
+-- the new one) so either team's page can query by its own team_abbr alone.
+-- ============================================================================
+create table if not exists ol_free_agency_moves (
+  team_abbr text not null references teams (team_abbr),
+  season int not null,                 -- the season being previewed, e.g. 2026
+  direction text not null check (direction in ('gained', 'lost')),
+  player_id text not null,
+  player_name text not null,
+  other_team_abbr text references teams (team_abbr), -- who they came from/went
+                                                       -- to; null = unsigned/retired
+  best_season int not null,            -- which of the past 2 seasons had their
+                                        -- qualifying (>=300) snap total
+  best_season_snaps int not null,
+  primary key (team_abbr, season, direction, player_id)
+);
 
 -- ============================================================================
 -- injuries: the CURRENT OL injury report per team. Like ol_starters, this is
@@ -267,6 +295,7 @@ create table if not exists player_combine (
 alter table teams enable row level security;
 alter table players enable row level security;
 alter table ol_depth_chart enable row level security;
+alter table ol_free_agency_moves enable row level security;
 alter table injuries enable row level security;
 alter table team_ol_stats enable row level security;
 alter table espn_team_block_win_rates enable row level security;
@@ -282,6 +311,9 @@ create policy "public read access" on players for select using (true);
 
 drop policy if exists "public read access" on ol_depth_chart;
 create policy "public read access" on ol_depth_chart for select using (true);
+
+drop policy if exists "public read access" on ol_free_agency_moves;
+create policy "public read access" on ol_free_agency_moves for select using (true);
 
 drop policy if exists "public read access" on injuries;
 create policy "public read access" on injuries for select using (true);
@@ -316,6 +348,7 @@ grant select on
   teams,
   players,
   ol_depth_chart,
+  ol_free_agency_moves,
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
@@ -333,6 +366,7 @@ grant select, insert, update, delete on
   teams,
   players,
   ol_depth_chart,
+  ol_free_agency_moves,
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
