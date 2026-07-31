@@ -29,7 +29,14 @@ export type TeamPageData = {
     overall_score: number | null;
     overall_grade: string | null;
   } | null;
-  depthChart: { position: string; depth_rank: number; player_name: string; snaps: number; honors: string[] }[];
+  depthChart: {
+    position: string;
+    depth_rank: number;
+    player_id: string | null;
+    player_name: string;
+    snaps: number;
+    honors: string[];
+  }[];
   injuries: { player_name: string; position: string | null; status: string | null; injury_description: string | null }[];
   espnTeamRates: {
     pass_block_win_rate: number | null;
@@ -65,7 +72,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
         .limit(1),
       supabase
         .from("ol_depth_chart")
-        .select("position, depth_rank, player_name, snaps")
+        .select("position, depth_rank, player_id, player_name, snaps")
         .eq("team_abbr", team.team_abbr)
         .eq("season", season),
       supabase

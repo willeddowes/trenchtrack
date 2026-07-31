@@ -4,3 +4,4 @@ pyarrow
 supabase
 python-dotenv
 pytest
+requests

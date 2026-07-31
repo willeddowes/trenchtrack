@@ -3,7 +3,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { TeamSearch } from "@/components/TeamSearch";
+import { PlayerSearch } from "@/components/PlayerSearch";
 import { CURRENT_SEASON } from "@/lib/teamsStatic";
+import { getPlayerSearchIndex } from "@/lib/getPlayerSearchIndex";
+
+export const revalidate = 86400; // regenerate at most once a day, matching every other page
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,11 +24,13 @@ export const metadata: Metadata = {
   description: "Free O-line stats and report-card grades for every NFL team.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const players = await getPlayerSearchIndex();
+
   return (
     <html
       lang="en"
@@ -42,6 +48,7 @@ export default function RootLayout({
             Team Stats
           </Link>
           <TeamSearch />
+          <PlayerSearch players={players} />
         </header>
         {children}
       </body>

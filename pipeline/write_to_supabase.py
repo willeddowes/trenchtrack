@@ -41,6 +41,32 @@ def upsert_players(client: Client, rows: list[dict]) -> None:
     client.table("players").upsert(_records(rows), on_conflict="player_id").execute()
 
 
+def fetch_all(client: Client, table: str, select: str, not_null: str | None = None) -> list[dict]:
+    """PostgREST caps an unpaginated select at 1000 rows -- ol_depth_chart
+    and players both already exceed that -- so anything reading a whole
+    table has to page through it with .range() instead of trusting one
+    execute() to return everything."""
+    page_size = 1000
+    rows: list[dict] = []
+    from_ = 0
+    while True:
+        query = client.table(table).select(select)
+        if not_null:
+            query = query.not_.is_(not_null, "null")
+        page = query.range(from_, from_ + page_size - 1).execute().data
+        rows.extend(page)
+        if len(page) < page_size:
+            break
+        from_ += page_size
+    return rows
+
+
+def upsert_player_combine(client: Client, rows: list[dict]) -> None:
+    if not rows:
+        return
+    client.table("player_combine").upsert(_records(rows), on_conflict="player_id").execute()
+
+
 def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> None:
     """Like replace_injuries -- each run replaces the whole season's ranked
     list, since the shape of the ranking (how many backups logged snaps at

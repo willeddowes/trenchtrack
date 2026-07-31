@@ -24,6 +24,7 @@ twice in a row just refreshes the same data rather than duplicating it.
 import nflreadpy as nfl
 
 from compute_grades import compute_grades
+from steps.pull_combine import pull_combine
 from steps.pull_injuries import pull_injuries
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_players import pull_players
@@ -33,6 +34,7 @@ from write_to_supabase import (
     get_client,
     replace_injuries,
     replace_ol_depth_chart,
+    upsert_player_combine,
     upsert_players,
     upsert_team_ol_stats,
 )
@@ -51,6 +53,9 @@ def main() -> None:
     print("Pulling O-line depth chart (snap counts by position)...")
     depth_chart = pull_season_ol_depth_chart(season)
     replace_ol_depth_chart(client, season, depth_chart.to_dict(orient="records"))
+
+    print("Matching combine data (nflreadpy's load_combine(), name+draft-year matched)...")
+    upsert_player_combine(client, pull_combine(client))
 
     print("Pulling injuries...")
     replace_injuries(client, season, pull_injuries(season))

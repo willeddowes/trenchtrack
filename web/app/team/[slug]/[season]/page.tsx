@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTeamPageData } from "@/lib/getTeamPageData";
 import { CURRENT_SEASON, SUPPORTED_SEASONS, TEAM_SLUGS, TEAMS } from "@/lib/teamsStatic";
 import { ordinal } from "@/lib/formatRank";
+import { buildPlayerSlug } from "@/lib/playerSlug";
 import { GradeBadge } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
 import { SeasonTabs } from "@/components/SeasonTabs";
@@ -173,7 +175,7 @@ export default async function TeamPage({
                   <td className="py-1.5 pr-2 align-top">
                     {starter ? (
                       <div className="flex flex-wrap items-center gap-1">
-                        <span className="font-semibold">{starter.player_name}</span>
+                        <PlayerNameLink player={starter} />
                         <span className="text-ink-muted">({starter.snaps} snaps)</span>
                         {starter.honors.map((h) => (
                           <HonorBadge key={h} honor={h} />
@@ -186,7 +188,7 @@ export default async function TeamPage({
                   <td className="py-1.5 align-top">
                     {backup ? (
                       <div className="flex flex-wrap items-center gap-1">
-                        <span className="font-semibold">{backup.player_name}</span>
+                        <PlayerNameLink player={backup} />
                         <span className="text-ink-muted">({backup.snaps} snaps)</span>
                         {backup.honors.map((h) => (
                           <HonorBadge key={h} honor={h} />
@@ -224,6 +226,20 @@ export default async function TeamPage({
         </section>
       )}
     </main>
+  );
+}
+
+/** A depth-chart player's name, linked to their player page when a
+ * player_id was matched (~97% of rows -- see pull_ol_depth_chart.py).
+ * The unmatched remainder just renders as plain text. */
+function PlayerNameLink({ player }: { player: { player_id: string | null; player_name: string } }) {
+  if (!player.player_id) {
+    return <span className="font-semibold">{player.player_name}</span>;
+  }
+  return (
+    <Link href={`/player/${buildPlayerSlug(player.player_name, player.player_id)}`} className="font-semibold hover:underline">
+      {player.player_name}
+    </Link>
   );
 }
 

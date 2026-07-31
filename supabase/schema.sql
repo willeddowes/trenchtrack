@@ -38,8 +38,26 @@ create table if not exists players (
   position text,
   team_abbr text references teams (team_abbr),
   headshot_url text,
+  height int,                        -- total inches (nflreadpy's raw unit) -- format as feet'inches" for display
+  weight int,
+  college text,
+  draft_year int,
+  draft_round int,
+  draft_pick int,                    -- overall pick number
+  draft_team text,                   -- team_abbr of the team that drafted them (may differ from team_abbr above)
   updated_at timestamptz not null default now()
 );
+
+-- Bio/draft columns above were added after the table's initial creation --
+-- these keep re-running this file safe against an already-deployed DB
+-- (the create table above is a no-op there since the table already exists).
+alter table players add column if not exists height int;
+alter table players add column if not exists weight int;
+alter table players add column if not exists college text;
+alter table players add column if not exists draft_year int;
+alter table players add column if not exists draft_round int;
+alter table players add column if not exists draft_pick int;
+alter table players add column if not exists draft_team text;
 
 -- ============================================================================
 -- ol_depth_chart: per team, per season, per position -- every player who
@@ -185,7 +203,59 @@ create table if not exists player_honors (
   player_name text not null,
   position text,
   honor text not null check (honor in ('pro_bowl', 'all_pro_1st', 'all_pro_2nd')),
+  player_id text,                    -- no FK, same reasoning as ol_depth_chart.player_id
+                                      -- above: honors span retired/departed players not
+                                      -- in the current-roster-only `players` table
   primary key (season, team_abbr, player_name, honor)
+);
+
+-- Added after the table's initial creation -- see players' bio/draft columns above for why this is safe to re-run.
+alter table player_honors add column if not exists player_id text;
+
+-- ============================================================================
+-- player_combine: NFL Combine (and pro-day-supplemented) workout numbers,
+-- one row per player -- these are one-time career facts, not per-season
+-- history, same reasoning as the draft columns on `players`. Two sources
+-- feed this table: nflreadpy's load_combine() (official, ~65-80% OL
+-- coverage, 6 raw drills, no percentiles) and a one-off mockdraftable.com
+-- scrape (broader measurables -- arm/hand/wingspan -- plus its own
+-- percentile-per-position numbers, which we display as-is rather than
+-- computing our own). `source` records whichever pass most recently wrote
+-- the row; a later mockdraftable pass overwrites an earlier nflreadpy-only
+-- row for the same player. No FK on player_id, same reasoning as
+-- ol_depth_chart/player_honors above: this spans retired players who
+-- won't have a current `players` row.
+-- ============================================================================
+create table if not exists player_combine (
+  player_id text primary key,
+  player_name text not null,
+  position text,
+
+  arm_length numeric,
+  hand_size numeric,
+  wingspan numeric,
+  forty numeric,
+  bench int,
+  vertical numeric,
+  broad_jump numeric,
+  cone numeric,
+  shuttle numeric,
+
+  -- percentiles are mockdraftable-only (nflreadpy doesn't compute them) --
+  -- null whenever source = 'nflreadpy' and mockdraftable had no match.
+  arm_length_percentile numeric,
+  hand_size_percentile numeric,
+  wingspan_percentile numeric,
+  forty_percentile numeric,
+  bench_percentile numeric,
+  vertical_percentile numeric,
+  broad_jump_percentile numeric,
+  cone_percentile numeric,
+  shuttle_percentile numeric,
+
+  source text not null check (source in ('nflreadpy', 'mockdraftable')),
+  source_url text,                   -- mockdraftable player page, for attribution/debugging
+  updated_at timestamptz not null default now()
 );
 
 -- ============================================================================
@@ -202,6 +272,7 @@ alter table team_ol_stats enable row level security;
 alter table espn_team_block_win_rates enable row level security;
 alter table espn_player_block_win_rates enable row level security;
 alter table player_honors enable row level security;
+alter table player_combine enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -227,6 +298,9 @@ create policy "public read access" on espn_player_block_win_rates for select usi
 drop policy if exists "public read access" on player_honors;
 create policy "public read access" on player_honors for select using (true);
 
+drop policy if exists "public read access" on player_combine;
+create policy "public read access" on player_combine for select using (true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -246,7 +320,8 @@ grant select on
   team_ol_stats,
   espn_team_block_win_rates,
   espn_player_block_win_rates,
-  player_honors
+  player_honors,
+  player_combine
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -262,5 +337,6 @@ grant select, insert, update, delete on
   team_ol_stats,
   espn_team_block_win_rates,
   espn_player_block_win_rates,
-  player_honors
+  player_honors,
+  player_combine
 to service_role;

@@ -26,30 +26,16 @@ into the same (team, week, name_norm, depth_position, gsis_id) shape so
 everything downstream doesn't care which one it got.
 """
 
-import re
-
 import nflreadpy as nfl
 import pandas as pd
+
+from name_matching import normalize_name as _normalize_name
 
 GENERIC_OL_POSITIONS = ["T", "G", "C", "OL"]  # PFR started tagging some
 # linemen with the generic catch-all "OL" (no T/G/C split) starting in the
 # 2025 season -- harmless here either way, since the depth-chart join is
 # what actually determines the specific side, not this initial position tag.
 SIDE_POSITIONS = ["LT", "LG", "C", "RG", "RT"]
-
-_SUFFIX_RE = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b\.?")
-_PUNCT_RE = re.compile(r"[.'’]")
-_SPACE_RE = re.compile(r"\s+")
-
-
-def _normalize_name(name: str | None) -> str | None:
-    if name is None or (isinstance(name, float) and pd.isna(name)):
-        return None
-    n = name.lower()
-    n = _PUNCT_RE.sub("", n)
-    n = _SUFFIX_RE.sub("", n)
-    n = _SPACE_RE.sub(" ", n).strip()
-    return n
 
 
 def _depth_chart_by_week(season: int) -> pd.DataFrame:
