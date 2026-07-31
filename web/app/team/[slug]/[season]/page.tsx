@@ -7,6 +7,7 @@ import { GradeBadge } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
 import { SeasonTabs } from "@/components/SeasonTabs";
 import { HonorBadge } from "@/components/HonorBadge";
+import { TeamGradeTrendChart } from "@/components/TeamGradeTrendChart";
 
 // Prebuilds every team x season combination at build time; Next.js
 // regenerates each page in the background at most once a day after that
@@ -48,7 +49,19 @@ export default async function TeamPage({
   const data = await getTeamPageData(slug, season);
   if (!data) notFound();
 
-  const { team, stats, depthChart, injuries, espnTeamRates } = data;
+  const {
+    team,
+    stats,
+    weeklyStats,
+    leagueAverages,
+    seasonHistory,
+    depthChart,
+    freeAgencyGained,
+    freeAgencyLost,
+    injuries,
+    espnTeamRates,
+  } = data;
+  const isProjectedDepthChart = depthChart.some((d) => d.snaps === null);
   const isCurrentSeason = season === CURRENT_SEASON;
 
   const positionOrder = ["LT", "LG", "C", "RG", "RT"];
@@ -57,6 +70,8 @@ export default async function TeamPage({
     starter: depthChart.find((d) => d.position === position && d.depth_rank === 1) ?? null,
     backup: depthChart.find((d) => d.position === position && d.depth_rank === 2) ?? null,
   }));
+
+  const seasonGrades = Object.fromEntries(seasonHistory.map((s) => [s.season, s.overall_grade]));
 
   return (
     <main className="mx-auto max-w-[80rem] space-y-4 p-8">
@@ -69,7 +84,13 @@ export default async function TeamPage({
           </div>
           <p className="text-xs text-ink-muted">{team.division}</p>
         </div>
-        <SeasonTabs basePath={`/team/${slug}`} activeSeason={season} seasons={SUPPORTED_SEASONS} />
+        <SeasonTabs
+          basePath={`/team/${slug}`}
+          activeSeason={season}
+          seasons={SUPPORTED_SEASONS}
+          grades={seasonGrades}
+          gradeLayout="right"
+        />
       </header>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_1fr_1fr]">
@@ -78,6 +99,7 @@ export default async function TeamPage({
             label="Overall"
             grade={stats?.overall_grade ?? null}
             score={stats?.overall_score ?? null}
+            rank={stats?.overall_score_rank ?? null}
             className="w-full"
           />
           <div className="flex gap-2">
@@ -85,6 +107,7 @@ export default async function TeamPage({
               label="Pass Block"
               grade={stats?.pass_block_grade ?? null}
               score={stats?.pass_block_score ?? null}
+              rank={stats?.pass_block_score_rank ?? null}
               size="sm"
               className="flex-1"
             />
@@ -92,6 +115,7 @@ export default async function TeamPage({
               label="Run Block"
               grade={stats?.run_block_grade ?? null}
               score={stats?.run_block_score ?? null}
+              rank={stats?.run_block_score_rank ?? null}
               size="sm"
               className="flex-1"
             />
@@ -149,10 +173,19 @@ export default async function TeamPage({
         )}
       </div>
 
+      {weeklyStats.length > 0 && (
+        <TeamGradeTrendChart
+          weeklyStats={weeklyStats}
+          leagueAverages={leagueAverages}
+          season={season}
+          teamColor={team.primary_color}
+        />
+      )}
+
       {depthChart.length > 0 && (
         <section className="rounded-2xl border border-line bg-surface p-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
-            Offensive Line Depth Chart &middot; by snaps played
+            Offensive Line Depth Chart &middot; {isProjectedDepthChart ? "Projected" : "by snaps played"}
           </h2>
           <table className="mt-2 w-full text-sm">
             <thead>
@@ -174,7 +207,7 @@ export default async function TeamPage({
                     {starter ? (
                       <div className="flex flex-wrap items-center gap-1">
                         <span className="font-semibold">{starter.player_name}</span>
-                        <span className="text-ink-muted">({starter.snaps} snaps)</span>
+                        {starter.snaps !== null && <span className="text-ink-muted">({starter.snaps} snaps)</span>}
                         {starter.honors.map((h) => (
                           <HonorBadge key={h} honor={h} />
                         ))}
@@ -187,7 +220,7 @@ export default async function TeamPage({
                     {backup ? (
                       <div className="flex flex-wrap items-center gap-1">
                         <span className="font-semibold">{backup.player_name}</span>
-                        <span className="text-ink-muted">({backup.snaps} snaps)</span>
+                        {backup.snaps !== null && <span className="text-ink-muted">({backup.snaps} snaps)</span>}
                         {backup.honors.map((h) => (
                           <HonorBadge key={h} honor={h} />
                         ))}
@@ -200,6 +233,58 @@ export default async function TeamPage({
               ))}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {(freeAgencyGained.length > 0 || freeAgencyLost.length > 0) && (
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <h2
+              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide"
+              style={{ color: "var(--grade-a)" }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--grade-a)" }} />
+              Free Agency &middot; Gained
+            </h2>
+            {freeAgencyGained.length > 0 ? (
+              <ul className="mt-2 divide-y divide-line text-sm">
+                {freeAgencyGained.map((m) => (
+                  <li key={m.player_id} className="flex items-baseline justify-between gap-4 py-1.5">
+                    <span className="font-semibold">{m.player_name}</span>
+                    <span className="shrink-0 text-ink-muted">
+                      from {m.other_team_abbr ?? "—"} &middot; {m.best_season_snaps} snaps ({m.best_season})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-ink-muted">No notable free agent signings.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <h2
+              className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide"
+              style={{ color: "var(--grade-f)" }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--grade-f)" }} />
+              Free Agency &middot; Lost
+            </h2>
+            {freeAgencyLost.length > 0 ? (
+              <ul className="mt-2 divide-y divide-line text-sm">
+                {freeAgencyLost.map((m) => (
+                  <li key={m.player_id} className="flex items-baseline justify-between gap-4 py-1.5">
+                    <span className="font-semibold">{m.player_name}</span>
+                    <span className="shrink-0 text-ink-muted">
+                      to {m.other_team_abbr ?? "Unsigned/Retired"} &middot; {m.best_season_snaps} snaps ({m.best_season})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-ink-muted">No notable departures.</p>
+            )}
+          </div>
         </section>
       )}
 
