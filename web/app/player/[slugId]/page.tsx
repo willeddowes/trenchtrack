@@ -171,63 +171,65 @@ export default async function PlayerPage({
         </section>
       )}
 
-      {combineRows.length > 0 && (
-        <section className="rounded-2xl border border-line bg-surface p-4">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Combine / Pro Day</h2>
-          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-            {combineRows.map(({ label, field, percentileField, format }) => {
-              const value = combine![field] as number;
-              const percentile = combine![percentileField] as number | null;
-              return (
-                <div key={field}>
-                  <dt className="text-xs text-ink-muted">{label}</dt>
-                  <dd className="font-semibold">
-                    {format(value)}
-                    {percentile !== null && percentile !== undefined && (
-                      <span className="ml-1 font-normal text-ink-muted">({ordinal(percentile)} pctl)</span>
-                    )}
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
-        </section>
-      )}
-
-      <section className="rounded-2xl border border-line bg-surface p-4">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Career &middot; by snaps played</h2>
-        <table className="mt-2 w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs font-bold uppercase tracking-wide text-ink-muted">
-              <th className="pb-2 pr-2 font-bold">Season</th>
-              <th className="pb-2 pr-2 font-bold">Team</th>
-              <th className="pb-2 pr-2 font-bold">Pos</th>
-              <th className="pb-2 pr-2 font-bold">Rank</th>
-              <th className="pb-2 font-bold">Snaps</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {career.map((row, idx) => (
-              <tr key={idx}>
-                <td className="py-1.5 pr-2 align-top font-semibold">{row.season}</td>
-                <td className="py-1.5 pr-2 align-top">{row.team_name}</td>
-                <td className="py-1.5 pr-2 align-top">{row.position}</td>
-                <td className="py-1.5 pr-2 align-top">
-                  {row.depth_rank === 1 ? "Starter" : `Backup #${row.depth_rank - 1}`}
-                </td>
-                <td className="py-1.5 align-top">
-                  <div className="flex flex-wrap items-center gap-1">
-                    {row.snaps}
-                    {row.honors.map((h) => (
-                      <HonorBadge key={h} honor={h} />
-                    ))}
+      <div className={`grid grid-cols-1 gap-4 ${combineRows.length > 0 ? "lg:grid-cols-[200px_1fr]" : ""}`}>
+        {combineRows.length > 0 && (
+          <section className="rounded-2xl border border-line bg-surface p-4">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Combine / Pro Day</h2>
+            <dl className="mt-1 divide-y divide-line text-sm">
+              {combineRows.map(({ label, field, percentileField, format }) => {
+                const value = combine![field] as number;
+                const percentile = combine![percentileField] as number | null;
+                return (
+                  <div key={field} className="py-2">
+                    <dt className="text-xs text-ink-muted">{label}</dt>
+                    <dd className="font-semibold">
+                      {format(value)}
+                      {percentile !== null && percentile !== undefined && (
+                        <span className="ml-1 font-normal text-ink-muted">({ordinal(percentile)} pctl)</span>
+                      )}
+                    </dd>
                   </div>
-                </td>
+                );
+              })}
+            </dl>
+          </section>
+        )}
+
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Career &middot; by snaps played</h2>
+          <table className="mt-2 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs font-bold uppercase tracking-wide text-ink-muted">
+                <th className="pb-2 pr-2 font-bold">Season</th>
+                <th className="pb-2 pr-2 font-bold">Team</th>
+                <th className="pb-2 pr-2 font-bold">Pos</th>
+                <th className="pb-2 pr-2 font-bold">Rank</th>
+                <th className="pb-2 font-bold">Snaps</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {career.map((row, idx) => (
+                <tr key={idx}>
+                  <td className="py-1.5 pr-2 align-top font-semibold">{row.season}</td>
+                  <td className="py-1.5 pr-2 align-top">{row.team_name}</td>
+                  <td className="py-1.5 pr-2 align-top">{row.position}</td>
+                  <td className="py-1.5 pr-2 align-top">
+                    {row.depth_rank === 1 ? "Starter" : `Backup #${row.depth_rank - 1}`}
+                  </td>
+                  <td className="py-1.5 align-top">
+                    <div className="flex flex-wrap items-center gap-1">
+                      {row.snaps}
+                      {row.honors.map((h) => (
+                        <HonorBadge key={h} honor={h} />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </div>
     </main>
   );
 }
