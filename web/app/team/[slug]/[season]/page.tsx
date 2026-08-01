@@ -251,11 +251,14 @@ export default async function TeamPage({
             {freeAgencyGained.length > 0 ? (
               <ul className="mt-2 divide-y divide-line text-sm">
                 {freeAgencyGained.map((m) => (
-                  <li key={m.player_id} className="flex items-baseline justify-between gap-4 py-1.5">
-                    <span className="font-semibold">{m.player_name}</span>
-                    <span className="shrink-0 text-ink-muted">
-                      from {m.other_team_abbr ?? "—"} &middot; {m.best_season_snaps} snaps ({m.best_season})
-                    </span>
+                  <li key={m.player_id} className="py-1.5">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="font-semibold">{m.player_name}</span>
+                      <span className="shrink-0 text-ink-muted">
+                        from {m.other_team_abbr ?? "—"} &middot; {m.best_season_snaps} snaps ({m.best_season})
+                      </span>
+                    </div>
+                    {formatContract(m) && <div className="text-xs text-ink-muted">{formatContract(m)}</div>}
                   </li>
                 ))}
               </ul>
@@ -275,11 +278,14 @@ export default async function TeamPage({
             {freeAgencyLost.length > 0 ? (
               <ul className="mt-2 divide-y divide-line text-sm">
                 {freeAgencyLost.map((m) => (
-                  <li key={m.player_id} className="flex items-baseline justify-between gap-4 py-1.5">
-                    <span className="font-semibold">{m.player_name}</span>
-                    <span className="shrink-0 text-ink-muted">
-                      to {m.other_team_abbr ?? "Unsigned/Retired"} &middot; {m.best_season_snaps} snaps ({m.best_season})
-                    </span>
+                  <li key={m.player_id} className="py-1.5">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span className="font-semibold">{m.player_name}</span>
+                      <span className="shrink-0 text-ink-muted">
+                        to {m.other_team_abbr ?? "Unsigned/Retired"} &middot; {m.best_season_snaps} snaps ({m.best_season})
+                      </span>
+                    </div>
+                    {formatContract(m) && <div className="text-xs text-ink-muted">{formatContract(m)}</div>}
                   </li>
                 ))}
               </ul>
@@ -359,4 +365,13 @@ function MetricRow({
       </dd>
     </div>
   );
+}
+
+/** "3-yr, $31.5M ($15M gtd)" for a free agency move's contract -- null when
+ * there's nothing meaningful to show (no OverTheCap data, or a $0 minimum
+ * deal placeholder). Guaranteed money is only called out when non-zero. */
+function formatContract(m: { contract_years: number | null; contract_value: number | null; contract_guaranteed: number | null }): string | null {
+  if (m.contract_years === null || m.contract_value === null || m.contract_value === 0) return null;
+  const guaranteed = m.contract_guaranteed && m.contract_guaranteed > 0 ? ` ($${m.contract_guaranteed.toFixed(1)}M gtd)` : "";
+  return `${m.contract_years}-yr, $${m.contract_value.toFixed(1)}M${guaranteed}`;
 }

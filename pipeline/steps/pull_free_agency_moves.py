@@ -20,6 +20,13 @@ year 1 but logged real snaps there in year 2, or vice versa).
 Each move is written from both sides -- a 'lost' row for the old team, a
 'gained' row for the new one -- so either team's page can query by its own
 team_abbr alone.
+
+Each move also carries the player's contract -- nflreadpy's load_contracts()
+(sourced from OverTheCap.com, joined by gsis_id, same id system as our own
+player_id -- no manual research needed here either). Whichever contract is
+most recent by year_signed naturally tends to be the deal behind the move
+itself: the new team's contract for someone gained, or their last known deal
+if they're now a free agent/retired.
 """
 
 import nflreadpy as nfl
@@ -32,6 +39,20 @@ SNAP_THRESHOLD = 300
 NO_TEAM = "__NONE__"  # sentinel so a real "not on any current roster" (None)
 # compares as different from every real team_abbr, without relying on how
 # pandas happens to handle NaN in a != comparison.
+
+
+def _latest_contracts() -> pd.DataFrame:
+    """Each player's most recent signed contract -- see module docstring."""
+    contracts = nfl.load_contracts().to_pandas().dropna(subset=["gsis_id"])
+    latest = contracts.sort_values("year_signed").drop_duplicates("gsis_id", keep="last")
+    return latest[["gsis_id", "years", "value", "guaranteed"]].rename(
+        columns={
+            "gsis_id": "player_id",
+            "years": "contract_years",
+            "value": "contract_value",
+            "guaranteed": "contract_guaranteed",
+        }
+    )
 
 
 def pull_free_agency_moves(client: Client, target_season: int) -> pd.DataFrame:
@@ -79,4 +100,10 @@ def pull_free_agency_moves(client: Client, target_season: int) -> pd.DataFrame:
     columns = ["team_abbr", "direction", "player_id", "player_name", "other_team_abbr", "best_season", "best_season_snaps"]
     result = pd.concat([lost[columns], gained[columns]], ignore_index=True)
     result["season"] = target_season
-    return result[["team_abbr", "season", "direction", "player_id", "player_name", "other_team_abbr", "best_season", "best_season_snaps"]]
+    result = result.merge(_latest_contracts(), on="player_id", how="left")
+
+    final_columns = [
+        "team_abbr", "season", "direction", "player_id", "player_name", "other_team_abbr",
+        "best_season", "best_season_snaps", "contract_years", "contract_value", "contract_guaranteed",
+    ]
+    return result[final_columns]

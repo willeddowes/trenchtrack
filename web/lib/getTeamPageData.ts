@@ -31,6 +31,9 @@ export type TeamFreeAgencyMove = {
   other_team_abbr: string | null;
   best_season: number;
   best_season_snaps: number;
+  contract_years: number | null;
+  contract_value: number | null;
+  contract_guaranteed: number | null;
 };
 
 export type TeamPageData = {
@@ -137,7 +140,9 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
         .eq("season", season),
       supabase
         .from("ol_free_agency_moves")
-        .select("direction, player_id, player_name, other_team_abbr, best_season, best_season_snaps")
+        .select(
+          "direction, player_id, player_name, other_team_abbr, best_season, best_season_snaps, contract_years, contract_value, contract_guaranteed"
+        )
         .eq("team_abbr", team.team_abbr)
         .eq("season", season),
       supabase
