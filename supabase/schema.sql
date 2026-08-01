@@ -100,6 +100,8 @@ alter table ol_depth_chart drop constraint if exists ol_depth_chart_player_id_fk
 -- roster -- not hand-researched, see pull_free_agency_moves.py. Each move is
 -- stored from BOTH sides (a "lost" row for the old team, a "gained" row for
 -- the new one) so either team's page can query by its own team_abbr alone.
+-- Also carries the player's most recent contract (OverTheCap via nflreadpy's
+-- load_contracts(), also not hand-researched).
 -- ============================================================================
 create table if not exists ol_free_agency_moves (
   team_abbr text not null references teams (team_abbr),
@@ -112,8 +114,16 @@ create table if not exists ol_free_agency_moves (
   best_season int not null,            -- which of the past 2 seasons had their
                                         -- qualifying (>=300) snap total
   best_season_snaps int not null,
+  contract_years numeric,              -- nullable: OverTheCap (via nflreadpy's
+  contract_value numeric,              -- load_contracts()) doesn't cover every
+  contract_guaranteed numeric,         -- player -- the player's most recent
+                                        -- signed deal, all in $ millions
   primary key (team_abbr, season, direction, player_id)
 );
+
+alter table ol_free_agency_moves add column if not exists contract_years numeric;
+alter table ol_free_agency_moves add column if not exists contract_value numeric;
+alter table ol_free_agency_moves add column if not exists contract_guaranteed numeric;
 
 -- ============================================================================
 -- injuries: the CURRENT OL injury report per team. Like ol_starters, this is
