@@ -103,7 +103,7 @@ export default async function PlayerPage({
   const data = await getPlayerPageData(playerId);
   if (!data) notFound();
 
-  const { player, displayName, career, combine } = data;
+  const { player, displayName, career, combine, allTimeHonors } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
         const pa = combine[a.percentileField] as number | null;
@@ -115,14 +115,16 @@ export default async function PlayerPage({
     : [];
   const position = player?.position ?? career[0]?.position ?? null;
   const pastTeams = [...new Map(career.map((c) => [c.team_abbr, c])).values()];
-  const allHonors = career.flatMap((c) => c.honors);
 
   // Career honor totals for the header, e.g. "4x Pro Bowl" -- ordered by
   // prestige (Pro Bowl, then 1st-Team, then 2nd-Team All-Pro), not by count.
+  // Reads from allTimeHonors (every honor this player_id has, full career),
+  // not career[].honors, which only covers seasons ol_depth_chart has data
+  // for (2021+) and would undercount anyone honored earlier than that.
   const HONOR_ORDER = ["pro_bowl", "all_pro_1st", "all_pro_2nd"];
   const honorCounts = HONOR_ORDER.map((honor) => ({
     honor,
-    count: allHonors.filter((h) => h === honor).length,
+    count: allTimeHonors.filter((h) => h === honor).length,
   })).filter((h) => h.count > 0);
 
   return (

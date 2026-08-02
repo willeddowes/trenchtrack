@@ -50,6 +50,14 @@ export type PlayerPageData = {
   displayName: string;
   career: PlayerCareerRow[];
   combine: PlayerCombine | null;
+  /** Every honor this player_id has ever earned, independent of whether a
+   * matching ol_depth_chart row exists for that season -- career.honors
+   * below only surfaces a honor if there's a season row to attach it to,
+   * which silently drops any honor from before ol_depth_chart's 2021
+   * coverage starts (e.g. a 2015 Pro Bowl for someone who debuted then).
+   * Career-total counts in the UI should read from this field, not by
+   * flattening career[].honors. */
+  allTimeHonors: string[];
 };
 
 /** Assembles everything one player page needs. Unlike getTeamPageData, this
@@ -105,6 +113,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     player,
     displayName,
     combine: combine ?? null,
+    allTimeHonors: (honors ?? []).map((h) => h.honor),
     career: careerRows.map((row) => {
       // Supabase's JS client types embedded relations as arrays even for
       // a to-one join -- it's always exactly one team here.
