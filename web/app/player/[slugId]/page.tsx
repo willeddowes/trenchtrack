@@ -60,6 +60,17 @@ function formatHeight(inches: number): string {
   return `${Math.floor(inches / 12)}'${inches % 12}"`;
 }
 
+/** Same 5-step "turf to rust" ramp used for grade letters elsewhere on the
+ * site (GradeBadge.GRADE_COLOR_VARS), reused here so an elite percentile
+ * reads as unmistakably green and a poor one as red at a glance. */
+function percentileColorVar(percentile: number): string {
+  if (percentile >= 90) return "--grade-a";
+  if (percentile >= 75) return "--grade-b";
+  if (percentile >= 50) return "--grade-c";
+  if (percentile >= 25) return "--grade-d";
+  return "--grade-f";
+}
+
 // One row per drill: which combine/percentile fields to read, and how to
 // format the raw value. Order matches how these are typically listed on a
 // scouting report (measurables first, then drills).
@@ -94,11 +105,25 @@ export default async function PlayerPage({
 
   const { player, displayName, career, combine } = data;
   const combineRows = combine
-    ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined)
+    ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
+        const pa = combine[a.percentileField] as number | null;
+        const pb = combine[b.percentileField] as number | null;
+        if (pa === null || pa === undefined) return pb === null || pb === undefined ? 0 : 1;
+        if (pb === null || pb === undefined) return -1;
+        return pb - pa; // best percentile first
+      })
     : [];
   const position = player?.position ?? career[0]?.position ?? null;
   const pastTeams = [...new Map(career.map((c) => [c.team_abbr, c])).values()];
   const allHonors = career.flatMap((c) => c.honors);
+
+  // Career honor totals for the header, e.g. "4x Pro Bowl" -- ordered by
+  // prestige (Pro Bowl, then 1st-Team, then 2nd-Team All-Pro), not by count.
+  const HONOR_ORDER = ["pro_bowl", "all_pro_1st", "all_pro_2nd"];
+  const honorCounts = HONOR_ORDER.map((honor) => ({
+    honor,
+    count: allHonors.filter((h) => h === honor).length,
+  })).filter((h) => h.count > 0);
 
   return (
     <main className="mx-auto max-w-[80rem] space-y-4 p-8">
@@ -125,10 +150,10 @@ export default async function PlayerPage({
               {pastTeams.map((t) => t.team_name).join(" · ")}
             </p>
           )}
-          {allHonors.length > 0 && (
+          {honorCounts.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
-              {[...new Set(allHonors)].map((h) => (
-                <HonorBadge key={h} honor={h} />
+              {honorCounts.map(({ honor, count }) => (
+                <HonorBadge key={honor} honor={honor} count={count} />
               ))}
             </div>
           )}
@@ -179,13 +204,14 @@ export default async function PlayerPage({
               {combineRows.map(({ label, field, percentileField, format }) => {
                 const value = combine![field] as number;
                 const percentile = combine![percentileField] as number | null;
+                const colorVar = percentile !== null && percentile !== undefined ? percentileColorVar(percentile) : null;
                 return (
                   <div key={field} className="py-2">
                     <dt className="text-xs text-ink-muted">{label}</dt>
-                    <dd className="font-semibold">
+                    <dd className="font-semibold" style={colorVar ? { color: `var(${colorVar})` } : undefined}>
                       {format(value)}
-                      {percentile !== null && percentile !== undefined && (
-                        <span className="ml-1 font-normal text-ink-muted">({ordinal(percentile)} pctl)</span>
+                      {colorVar && (
+                        <span className="ml-1 font-normal text-ink-muted">({ordinal(percentile!)} pctl)</span>
                       )}
                     </dd>
                   </div>

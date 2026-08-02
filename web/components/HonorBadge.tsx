@@ -1,7 +1,7 @@
 const HONOR_LABELS: Record<string, string> = {
   pro_bowl: "Pro Bowl",
-  all_pro_1st: "1st All-Pro",
-  all_pro_2nd: "2nd All-Pro",
+  all_pro_1st: "1st Team All-Pro",
+  all_pro_2nd: "2nd Team All-Pro",
 };
 
 // Small star mark (plain SVG, not an emoji) so All-Pro/Pro Bowl reads as
@@ -18,7 +18,7 @@ function StarIcon() {
 // "award," distinct from the green/red good/bad tokens used everywhere
 // else on the page -- rather than introducing a new color for this alone.
 // Pro Bowl stays neutral gray since it's the more common of the two honors.
-export function HonorBadge({ honor }: { honor: string }) {
+export function HonorBadge({ honor, count }: { honor: string; count?: number }) {
   const label = HONOR_LABELS[honor];
   if (!label) return null;
 
@@ -36,7 +36,7 @@ export function HonorBadge({ honor }: { honor: string }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-bold" style={style}>
       <StarIcon />
-      {label}
+      {count ? `${count}x ${label}` : label}
     </span>
   );
 }
