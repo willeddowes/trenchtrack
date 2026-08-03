@@ -14,8 +14,12 @@ export function HomepageViewToggle({ teams, season }: { teams: HomepageTeam[]; s
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <div className="flex gap-1 rounded-full border border-line bg-surface p-1">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Offensive line grades</h1>
+          <p className="text-ink-muted">{season} season &middot; updated weekly</p>
+        </div>
+        <div className="flex shrink-0 gap-1 rounded-full border border-line bg-surface p-1">
           {(
             [
               ["division", "Division view"],
