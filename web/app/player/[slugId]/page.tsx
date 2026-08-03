@@ -103,7 +103,7 @@ export default async function PlayerPage({
   const data = await getPlayerPageData(playerId);
   if (!data) notFound();
 
-  const { player, displayName, career, combine, allTimeHonors } = data;
+  const { player, displayName, career, combine, allTimeHonors, archetype, primaryPosition } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
         const pa = combine[a.percentileField] as number | null;
@@ -113,7 +113,7 @@ export default async function PlayerPage({
         return pb - pa; // best percentile first
       })
     : [];
-  const position = player?.position ?? career[0]?.position ?? null;
+  const position = primaryPosition;
   const pastTeams = [...new Map(career.map((c) => [c.team_abbr, c])).values()];
 
   // Career honor totals for the header, e.g. "4x Pro Bowl" -- ordered by
@@ -148,9 +148,20 @@ export default async function PlayerPage({
             {position && <span className="text-sm font-bold text-ink-muted">{position}</span>}
           </div>
           {pastTeams.length > 0 && (
-            <p className="text-xs text-ink-muted">
+            <p className="mt-1 text-xs text-ink-muted">
               {pastTeams.map((t) => t.team_name).join(" · ")}
             </p>
+          )}
+          {archetype && (
+            <div className="mt-2 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs">
+              <span className="font-semibold text-ink">{archetype.archetype}</span>
+              {archetype.reasons.map((reason) => (
+                <span key={reason} className="flex items-center gap-1.5 text-ink-muted">
+                  <span className="h-1 w-1 shrink-0 rounded-full bg-ink-muted" />
+                  {reason}
+                </span>
+              ))}
+            </div>
           )}
           {honorCounts.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">

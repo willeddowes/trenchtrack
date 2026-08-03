@@ -58,6 +58,21 @@ export type PlayerPageData = {
    * Career-total counts in the UI should read from this field, not by
    * flattening career[].honors. */
   allTimeHonors: string[];
+  archetype: { archetype: string; reasons: string[] } | null;
+  /** Specific position (OT/OG/C) for the header badge -- `players.position`
+   * only ever stores the generic "OL" for offensive linemen (nflreadpy
+   * roster data doesn't break it down further), so this is derived instead
+   * from ol_depth_chart's per-season LT/RT/LG/RG/C rows: whichever of
+   * OT/OG/C group has the most total career snaps. */
+  primaryPosition: "OT" | "OG" | "C" | null;
+};
+
+const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
+  LT: "OT",
+  RT: "OT",
+  LG: "OG",
+  RG: "OG",
+  C: "C",
 };
 
 /** Assembles everything one player page needs. Unlike getTeamPageData, this
@@ -68,7 +83,7 @@ export type PlayerPageData = {
 export async function getPlayerPageData(playerId: string): Promise<PlayerPageData | null> {
   const supabase = createAnonServerClient();
 
-  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }] = await Promise.all([
+  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }] = await Promise.all([
     // Nullable on purpose: retired/departed players have career rows below
     // but no row here, since `players` only ever holds the current roster.
     supabase
@@ -93,6 +108,9 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
       )
       .eq("player_id", playerId)
       .maybeSingle(),
+    // Nullable: only players the classifier could categorize have a row
+    // (see compute_player_archetypes.py) -- some players have no archetype.
+    supabase.from("player_archetypes").select("archetype, reasons").eq("player_id", playerId).maybeSingle(),
   ]);
 
   if (!careerRows || careerRows.length === 0) return null;
@@ -109,11 +127,28 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
   // back to whatever name ol_depth_chart recorded (retired players).
   const displayName = player?.full_name ?? careerRows[0].player_name;
 
+  const snapsByGroup = new Map<"OT" | "OG" | "C", number>();
+  for (const row of careerRows) {
+    const group = POSITION_GROUP[row.position];
+    if (!group) continue;
+    snapsByGroup.set(group, (snapsByGroup.get(group) ?? 0) + (row.snaps ?? 0));
+  }
+  let primaryPosition: "OT" | "OG" | "C" | null = null;
+  let bestSnaps = -1;
+  for (const [group, snaps] of snapsByGroup) {
+    if (snaps > bestSnaps) {
+      bestSnaps = snaps;
+      primaryPosition = group;
+    }
+  }
+
   return {
     player,
     displayName,
     combine: combine ?? null,
     allTimeHonors: (honors ?? []).map((h) => h.honor),
+    archetype: archetype ?? null,
+    primaryPosition,
     career: careerRows.map((row) => {
       // Supabase's JS client types embedded relations as arrays even for
       // a to-one join -- it's always exactly one team here.

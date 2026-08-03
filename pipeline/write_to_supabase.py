@@ -67,6 +67,12 @@ def upsert_player_combine(client: Client, rows: list[dict]) -> None:
     client.table("player_combine").upsert(_records(rows), on_conflict="player_id").execute()
 
 
+def upsert_player_archetypes(client: Client, rows: list[dict]) -> None:
+    if not rows:
+        return
+    client.table("player_archetypes").upsert(_records(rows), on_conflict="player_id").execute()
+
+
 def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> None:
     """Like replace_injuries -- each run replaces the whole season's ranked
     list, since the shape of the ranking (how many backups logged snaps at

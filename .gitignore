@@ -4,6 +4,7 @@ pipeline/__pycache__/
 pipeline/**/__pycache__/
 *.pyc
 pipeline/.env
+pipeline/_scratch/
 
 # macOS
 .DS_Store

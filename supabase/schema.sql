@@ -317,6 +317,27 @@ create table if not exists player_combine (
 );
 
 -- ============================================================================
+-- player_archetypes: one derived label per player_id (not per-season --
+-- based on career draft/combine/snap-history data, same "current best
+-- classification" model the script itself uses), computed by
+-- pipeline/compute_player_archetypes.py from data already in this DB
+-- (players, player_combine, ol_depth_chart, player_honors). Not hand-
+-- entered like player_honors above -- fully rule-derived, but the rules
+-- are hand-tuned enough (see the script's docstring) that this is run
+-- manually, not wired into pull_and_compute.py's automatic pipeline.
+-- `reasons` are short (3-4 word) bullets explaining the archetype, e.g.
+-- "90th %ile weight" -- built for direct display on the player page, not
+-- meant to be parsed back apart.
+-- ============================================================================
+create table if not exists player_archetypes (
+  player_id text primary key,        -- no FK, same reasoning as player_combine/ol_depth_chart:
+                                      -- spans retired players not in the current-roster `players` table
+  archetype text not null,
+  reasons text[] not null default '{}',
+  computed_at timestamptz not null default now()
+);
+
+-- ============================================================================
 -- Row Level Security: lock every table down, then open read-only access to
 -- the public `anon` key. The service_role key (used server-side by the
 -- pipeline and the /api/espn-entry route) always bypasses RLS, so it can
@@ -333,6 +354,7 @@ alter table espn_team_block_win_rates enable row level security;
 alter table espn_player_block_win_rates enable row level security;
 alter table player_honors enable row level security;
 alter table player_combine enable row level security;
+alter table player_archetypes enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -367,6 +389,9 @@ create policy "public read access" on player_honors for select using (true);
 drop policy if exists "public read access" on player_combine;
 create policy "public read access" on player_combine for select using (true);
 
+drop policy if exists "public read access" on player_archetypes;
+create policy "public read access" on player_archetypes for select using (true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -389,7 +414,8 @@ grant select on
   espn_team_block_win_rates,
   espn_player_block_win_rates,
   player_honors,
-  player_combine
+  player_combine,
+  player_archetypes
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -408,5 +434,6 @@ grant select, insert, update, delete on
   espn_team_block_win_rates,
   espn_player_block_win_rates,
   player_honors,
-  player_combine
+  player_combine,
+  player_archetypes
 to service_role;
