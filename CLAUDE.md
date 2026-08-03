@@ -6,6 +6,8 @@ Free public dashboard of NFL offensive-line stats and letter grades, one page pe
 
 Reply in the most concise form possible. Skip pleasantries, preambles, and recaps of the question. No phrases like "I'd be happy to", "Great question", or "Let me explain". Drop articles and filler words wherever the meaning stays clear. Prefer short declarative sentences. If a tool call is needed, run it first and show only the result. Do not narrate steps.
 
+When telling the user to paste/run SQL in the Supabase SQL Editor, always say whether it goes in a **new query** or should **replace** a specific existing one they already have open (name which).
+
 **Live:** https://trenchtrack.vercel.app · **Repo:** github.com/willeddowes/trenchtrack
 
 ## Stack & structure

@@ -76,6 +76,14 @@ def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> Non
         client.table("ol_depth_chart").insert(_records(rows)).execute()
 
 
+def replace_ol_draft_picks(client: Client, season: int, rows: list[dict]) -> None:
+    """Same delete-and-replace pattern as replace_ol_depth_chart. Draft
+    results never change once official, but re-running is still safe/cheap."""
+    client.table("ol_draft_picks").delete().eq("season", season).execute()
+    if rows:
+        client.table("ol_draft_picks").insert(_records(rows)).execute()
+
+
 def fetch_ol_depth_chart(client: Client, seasons: list[int]) -> pd.DataFrame:
     """Reads back our own stored O-line depth-chart history for the given
     seasons -- used by pull_free_agency_moves.py to find each player's real

@@ -60,6 +60,7 @@ export default async function TeamPage({
     depthChart,
     freeAgencyGained,
     freeAgencyLost,
+    draftPicks,
     injuries,
     espnTeamRates,
   } = data;
@@ -293,6 +294,22 @@ export default async function TeamPage({
               <p className="mt-2 text-sm text-ink-muted">No notable departures.</p>
             )}
           </div>
+        </section>
+      )}
+
+      {draftPicks.length > 0 && (
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">NFL Draft &middot; Offensive Line</h2>
+          <ul className="mt-2 divide-y divide-line text-sm">
+            {draftPicks.map((p) => (
+              <li key={p.pick} className="flex items-baseline justify-between gap-4 py-1.5">
+                <PlayerNameLink player={p} />
+                <span className="shrink-0 text-ink-muted">
+                  Round {p.round}, Pick {p.pick} &middot; {p.position}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

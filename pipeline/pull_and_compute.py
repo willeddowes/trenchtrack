@@ -27,6 +27,7 @@ from compute_grades import compute_grades
 from steps.pull_combine import pull_combine
 from steps.pull_injuries import pull_injuries
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
+from steps.pull_ol_draft_picks import pull_ol_draft_picks
 from steps.pull_players import pull_players
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
@@ -34,6 +35,7 @@ from write_to_supabase import (
     get_client,
     replace_injuries,
     replace_ol_depth_chart,
+    replace_ol_draft_picks,
     upsert_player_combine,
     upsert_players,
     upsert_team_ol_stats,
@@ -56,6 +58,10 @@ def main() -> None:
 
     print("Matching combine data (nflreadpy's load_combine(), name+draft-year matched)...")
     upsert_player_combine(client, pull_combine(client))
+
+    print("Pulling this season's O-line draft picks...")
+    draft_picks = pull_ol_draft_picks(season)
+    replace_ol_draft_picks(client, season, draft_picks.to_dict(orient="records"))
 
     print("Pulling injuries...")
     replace_injuries(client, season, pull_injuries(season))

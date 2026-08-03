@@ -19,11 +19,13 @@ import sys
 
 from compute_grades import compute_grades
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
+from steps.pull_ol_draft_picks import pull_ol_draft_picks
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
     fetch_espn_team_rates,
     get_client,
     replace_ol_depth_chart,
+    replace_ol_draft_picks,
     upsert_team_ol_stats,
 )
 
@@ -56,6 +58,11 @@ def backfill(client, season: int) -> None:
     depth_chart = pull_season_ol_depth_chart(season)
     print(f"[{season}] writing {len(depth_chart)} depth chart rows...")
     replace_ol_depth_chart(client, season, depth_chart.to_dict(orient="records"))
+
+    print(f"[{season}] pulling O-line draft picks...")
+    draft_picks = pull_ol_draft_picks(season)
+    print(f"[{season}] writing {len(draft_picks)} draft pick rows...")
+    replace_ol_draft_picks(client, season, draft_picks.to_dict(orient="records"))
 
 
 if __name__ == "__main__":

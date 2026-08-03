@@ -36,6 +36,14 @@ export type TeamFreeAgencyMove = {
   contract_guaranteed: number | null;
 };
 
+export type TeamDraftPick = {
+  round: number;
+  pick: number;
+  player_id: string | null;
+  player_name: string;
+  position: "OT" | "OG" | "C" | "OL";
+};
+
 export type TeamPageData = {
   team: {
     team_abbr: string;
@@ -81,6 +89,7 @@ export type TeamPageData = {
   }[];
   freeAgencyGained: TeamFreeAgencyMove[];
   freeAgencyLost: TeamFreeAgencyMove[];
+  draftPicks: TeamDraftPick[];
   injuries: { player_name: string; position: string | null; status: string | null; injury_description: string | null }[];
   espnTeamRates: {
     pass_block_win_rate: number | null;
@@ -108,6 +117,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
     { data: weeklyStatsRows },
     { data: depthChart },
     { data: freeAgencyMoves },
+    { data: draftPicks },
     { data: injuries },
     { data: honors },
     leagueStats,
@@ -145,6 +155,12 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
         )
         .eq("team_abbr", team.team_abbr)
         .eq("season", season),
+      supabase
+        .from("ol_draft_picks")
+        .select("round, pick, player_id, player_name, position")
+        .eq("team_abbr", team.team_abbr)
+        .eq("season", season)
+        .order("pick", { ascending: true }),
       supabase
         .from("injuries")
         .select("player_name, position, status, injury_description")
@@ -199,6 +215,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
     freeAgencyLost: (freeAgencyMoves ?? [])
       .filter((m) => m.direction === "lost")
       .sort((a, b) => b.best_season_snaps - a.best_season_snaps),
+    draftPicks: draftPicks ?? [],
     injuries: injuries ?? [],
     espnTeamRates: leagueEspnRates,
   };

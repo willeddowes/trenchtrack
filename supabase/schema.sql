@@ -126,6 +126,26 @@ alter table ol_free_agency_moves add column if not exists contract_value numeric
 alter table ol_free_agency_moves add column if not exists contract_guaranteed numeric;
 
 -- ============================================================================
+-- ol_draft_picks: every O-line player a team drafted, one row per pick, shown
+-- on that same draft year's team page (the 2024 class on the 2024 page, etc).
+-- Source: nflreadpy's load_draft_picks() (Pro Football Reference) -- fully
+-- automated, not hand-researched, see pull_ol_draft_picks.py. Unlike
+-- ol_free_agency_moves this isn't "gained/lost" (a draft pick doesn't have a
+-- symmetric other side) -- just the picks that team made that year.
+-- ============================================================================
+create table if not exists ol_draft_picks (
+  team_abbr text not null references teams (team_abbr),
+  season int not null,                 -- draft year == the team-page season
+  round int not null,
+  pick int not null,                   -- overall pick number
+  player_id text,                      -- nullable -- PFR/gsis crosswalk
+                                        -- occasionally misses very recent picks
+  player_name text not null,
+  position text not null check (position in ('OT', 'OG', 'C', 'OL')),
+  primary key (team_abbr, season, pick)
+);
+
+-- ============================================================================
 -- injuries: the CURRENT OL injury report per team. Like ol_starters, this is
 -- a snapshot the pipeline replaces each run (delete this team's rows, insert
 -- the fresh ones), not an append-only history table.
@@ -306,6 +326,7 @@ alter table teams enable row level security;
 alter table players enable row level security;
 alter table ol_depth_chart enable row level security;
 alter table ol_free_agency_moves enable row level security;
+alter table ol_draft_picks enable row level security;
 alter table injuries enable row level security;
 alter table team_ol_stats enable row level security;
 alter table espn_team_block_win_rates enable row level security;
@@ -324,6 +345,9 @@ create policy "public read access" on ol_depth_chart for select using (true);
 
 drop policy if exists "public read access" on ol_free_agency_moves;
 create policy "public read access" on ol_free_agency_moves for select using (true);
+
+drop policy if exists "public read access" on ol_draft_picks;
+create policy "public read access" on ol_draft_picks for select using (true);
 
 drop policy if exists "public read access" on injuries;
 create policy "public read access" on injuries for select using (true);
@@ -359,6 +383,7 @@ grant select on
   players,
   ol_depth_chart,
   ol_free_agency_moves,
+  ol_draft_picks,
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
@@ -377,6 +402,7 @@ grant select, insert, update, delete on
   players,
   ol_depth_chart,
   ol_free_agency_moves,
+  ol_draft_picks,
   injuries,
   team_ol_stats,
   espn_team_block_win_rates,
