@@ -311,8 +311,12 @@ create table if not exists player_combine (
   cone_percentile numeric,
   shuttle_percentile numeric,
 
-  source text not null check (source in ('nflreadpy', 'mockdraftable')),
-  source_url text,                   -- mockdraftable player page, for attribution/debugging
+  -- 'wikipedia' added later: fills the {{NFL predraft}}/{{NFL Combine}}
+  -- template's numbers (often the Pro Day workout, not just the live
+  -- Combine) for players nflreadpy/mockdraftable are missing entirely --
+  -- see pipeline/_scratch/scrape_wikipedia_combine.py.
+  source text not null check (source in ('nflreadpy', 'mockdraftable', 'wikipedia')),
+  source_url text,                   -- mockdraftable/wikipedia player page, for attribution/debugging
   updated_at timestamptz not null default now()
 );
 

@@ -55,13 +55,22 @@ def pull_combine(client) -> list[dict]:
         if name_counts.get(name, 0) == 1
     }
 
-    # A mockdraftable-enriched row is strictly better than what this nflreadpy
-    # pass can produce (more measurables, plus percentiles) -- don't let a
-    # routine pipeline re-run clobber it back down via the upsert below.
+    # A mockdraftable- or wikipedia-enriched row is strictly better than what
+    # this nflreadpy pass can produce (more measurables, and/or drill numbers
+    # nflreadpy's own load_combine() doesn't have -- e.g. Pro-Day-only
+    # workouts, see scrape_wikipedia_combine.py) -- don't let a routine
+    # pipeline re-run clobber it back down via the upsert below. A row also
+    # counts as enriched if its drill fields are already filled in regardless
+    # of source, since upsert_player_combine only ever overwrites the columns
+    # this pass provides (all 6 drills) -- nulling them back out would be a
+    # regression even for an old nflreadpy-sourced row that got manually topped up.
     already_enriched = {
         r["player_id"]
-        for r in fetch_all(client, "player_combine", "player_id,source")
-        if r["source"] == "mockdraftable"
+        for r in fetch_all(
+            client, "player_combine", "player_id,source,forty,bench,vertical,broad_jump,cone,shuttle"
+        )
+        if r["source"] in ("mockdraftable", "wikipedia")
+        or all(r[f] is not None for f in ("forty", "bench", "vertical", "broad_jump", "cone", "shuttle"))
     }
 
     def _clean(value) -> float | None:
