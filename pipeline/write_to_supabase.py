@@ -73,6 +73,12 @@ def upsert_player_archetypes(client: Client, rows: list[dict]) -> None:
     client.table("player_archetypes").upsert(_records(rows), on_conflict="player_id").execute()
 
 
+def upsert_player_injury_rates(client: Client, rows: list[dict]) -> None:
+    if not rows:
+        return
+    client.table("player_injury_rates").upsert(_records(rows), on_conflict="player_id").execute()
+
+
 def upsert_player_injury_reports(client: Client, rows: list[dict]) -> None:
     if not rows:
         return

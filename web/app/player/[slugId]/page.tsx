@@ -115,7 +115,7 @@ export default async function PlayerPage({
     primaryPosition,
     currentTeamLogoUrl,
     injuryHistory,
-    totalWeeksOut,
+    injuryPercentile,
   } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
@@ -236,10 +236,6 @@ export default async function PlayerPage({
         </section>
       )}
 
-      {injuryHistory.length > 0 && (
-        <InjuryHistoryCard injuryHistory={injuryHistory} totalWeeksOut={totalWeeksOut} />
-      )}
-
       <div className={`grid grid-cols-1 gap-4 ${combineRows.length > 0 ? "lg:grid-cols-[200px_1fr]" : ""}`}>
         {combineRows.length > 0 && (
           <section className="rounded-2xl border border-line bg-surface p-4">
@@ -303,6 +299,10 @@ export default async function PlayerPage({
           </table>
         </section>
       </div>
+
+      {injuryHistory.length > 0 && (
+        <InjuryHistoryCard injuryHistory={injuryHistory} injuryPercentile={injuryPercentile} />
+      )}
     </main>
   );
 }

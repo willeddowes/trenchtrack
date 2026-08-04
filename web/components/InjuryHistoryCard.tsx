@@ -13,10 +13,10 @@ const INITIAL_ROWS = 5;
  * more -- injuryHistory is already sorted most-recent-season-first. */
 export function InjuryHistoryCard({
   injuryHistory,
-  totalWeeksOut,
+  injuryPercentile,
 }: {
   injuryHistory: PlayerInjuryEntry[];
-  totalWeeksOut: number;
+  injuryPercentile: number | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasMore = injuryHistory.length > INITIAL_ROWS;
@@ -24,9 +24,12 @@ export function InjuryHistoryCard({
 
   return (
     <section className="rounded-xl border border-line bg-surface p-3">
-      <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">
-        Injury History &middot; {totalWeeksOut} {totalWeeksOut === 1 ? "week" : "weeks"} missed
-      </h2>
+      <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">Injury History:</h2>
+      {injuryPercentile !== null && (
+        <p className="mt-0.5 text-xs text-ink-muted">
+          Missed more career time than {Math.round(injuryPercentile)}% of tracked OL
+        </p>
+      )}
       <ul className="mt-1.5 divide-y divide-line text-xs">
         {visible.map((entry) => (
           <li key={`${entry.season}-${entry.injuryDescription}`} className="flex items-baseline justify-between gap-4 py-1">

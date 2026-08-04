@@ -198,6 +198,31 @@ create table if not exists player_injury_reports (
 );
 
 -- ============================================================================
+-- player_injury_rates: one derived row per player_id (not per-season, same
+-- "current best computation" model player_archetypes uses) -- career
+-- weeks missed as a percentile against every other tracked OL player,
+-- computed by pipeline/compute_injury_rates.py from player_injury_reports
+-- + ol_depth_chart. Regular season only (playoff "Out" weeks are excluded
+-- from both the numerator and the denominator, since not every team makes
+-- the playoffs and mixing them in would unfairly reward/punish players for
+-- their team's success rather than their own health), and "possible weeks"
+-- per season is a fixed 17 (seasons before 2021) or 18 (2021+) -- the
+-- season's real week count, not adjusted for the player's own bye week
+-- (which they can never be marked Out for anyway, so it's a small uniform
+-- undercount of "possible" that doesn't distort the percentile ranking
+-- between players). Not wired into the automatic pipeline, same reasoning
+-- as player_archetypes -- run manually when injury/depth-chart data changes.
+-- ============================================================================
+create table if not exists player_injury_rates (
+  player_id text primary key,        -- no FK, same reasoning as player_injury_reports above
+  weeks_missed int not null,
+  possible_weeks int not null,
+  missed_rate numeric not null,      -- weeks_missed / possible_weeks, stored for convenience/debugging
+  missed_percentile numeric not null, -- 0-100, higher = missed MORE time than more of the population
+  computed_at timestamptz not null default now()
+);
+
+-- ============================================================================
 -- team_ol_stats: the core computed table -- one row per team, per season,
 -- per week. This is stored as WEEKLY HISTORY (never overwritten) rather than
 -- a single "current" snapshot, specifically so that a future "grade over the
@@ -391,6 +416,7 @@ alter table player_honors enable row level security;
 alter table player_combine enable row level security;
 alter table player_archetypes enable row level security;
 alter table player_injury_reports enable row level security;
+alter table player_injury_rates enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -431,6 +457,9 @@ create policy "public read access" on player_archetypes for select using (true);
 drop policy if exists "public read access" on player_injury_reports;
 create policy "public read access" on player_injury_reports for select using (true);
 
+drop policy if exists "public read access" on player_injury_rates;
+create policy "public read access" on player_injury_rates for select using (true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -455,7 +484,8 @@ grant select on
   player_honors,
   player_combine,
   player_archetypes,
-  player_injury_reports
+  player_injury_reports,
+  player_injury_rates
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -476,5 +506,6 @@ grant select, insert, update, delete on
   player_honors,
   player_combine,
   player_archetypes,
-  player_injury_reports
+  player_injury_reports,
+  player_injury_rates
 to service_role;

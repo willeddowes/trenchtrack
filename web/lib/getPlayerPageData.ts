@@ -84,8 +84,11 @@ export type PlayerPageData = {
    * schema.sql), so each entry here is a real missed-game count, not just
    * a report appearance. Sorted most recent season first. */
   injuryHistory: PlayerInjuryEntry[];
-  /** Sum of injuryHistory[].weeksOut -- career total, shown as the card's headline stat. */
-  totalWeeksOut: number;
+  /** 0-100, higher = missed MORE career time than more of the tracked OL
+   * population -- from player_injury_rates (see compute_injury_rates.py).
+   * Null if the player hasn't been through that script yet (or has zero
+   * possible_weeks, which shouldn't happen for anyone with a career row). */
+  injuryPercentile: number | null;
 };
 
 const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
@@ -104,7 +107,7 @@ const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
 export async function getPlayerPageData(playerId: string): Promise<PlayerPageData | null> {
   const supabase = createAnonServerClient();
 
-  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }, { data: injuryRows }] = await Promise.all([
+  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }, { data: injuryRows }, { data: injuryRate }] = await Promise.all([
     // Nullable on purpose: retired/departed players have career rows below
     // but no row here, since `players` only ever holds the current roster.
     supabase
@@ -140,6 +143,9 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
       .eq("player_id", playerId)
       .order("season", { ascending: false })
       .order("week", { ascending: true }),
+    // Nullable: only players compute_injury_rates.py has run for (which
+    // requires at least one real, non-projected career season) have a row.
+    supabase.from("player_injury_rates").select("missed_percentile").eq("player_id", playerId).maybeSingle(),
   ]);
 
   if (!careerRows || careerRows.length === 0) return null;
@@ -187,7 +193,6 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     }
   }
   const injuryHistory = [...injuryGroups.values()].sort((a, b) => b.season - a.season);
-  const totalWeeksOut = injuryHistory.reduce((sum, entry) => sum + entry.weeksOut, 0);
 
   return {
     player,
@@ -197,7 +202,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     archetype: archetype ?? null,
     primaryPosition,
     injuryHistory,
-    totalWeeksOut,
+    injuryPercentile: injuryRate?.missed_percentile ?? null,
     currentTeamLogoUrl: (() => {
       const team = Array.isArray(careerRows[0].teams) ? careerRows[0].teams[0] : careerRows[0].teams;
       return team?.logo_url ?? null;
