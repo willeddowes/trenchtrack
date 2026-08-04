@@ -116,6 +116,19 @@ export default async function PlayerPage({
     : [];
   const position = primaryPosition;
 
+  // Alternates a subtle shade per season group in the career table below --
+  // every row of a multi-row season (e.g. a mid-season position switch)
+  // shares one color, rather than zebra-striping every individual row.
+  let lastSeason: number | null = null;
+  let shadeToggle = false;
+  const seasonShade = career.map((row) => {
+    if (row.season !== lastSeason) {
+      lastSeason = row.season;
+      shadeToggle = !shadeToggle;
+    }
+    return shadeToggle;
+  });
+
   // Career honor totals for the header, e.g. "4x Pro Bowl" -- ordered by
   // prestige (Pro Bowl, then 1st-Team, then 2nd-Team All-Pro), not by count.
   // Reads from allTimeHonors (every honor this player_id has, full career),
@@ -246,7 +259,10 @@ export default async function PlayerPage({
             </thead>
             <tbody className="divide-y divide-line">
               {career.map((row, idx) => (
-                <tr key={idx}>
+                <tr
+                  key={idx}
+                  className={seasonShade[idx] ? "bg-[color-mix(in_srgb,var(--background)_25%,white)]" : undefined}
+                >
                   <td className="py-1.5 pr-2 align-top font-semibold">{row.season}</td>
                   <td className="py-1.5 pr-2 align-top">{row.team_name}</td>
                   <td className="py-1.5 pr-2 align-top">{row.position}</td>
