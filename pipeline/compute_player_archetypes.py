@@ -617,10 +617,6 @@ def _versatility_bullet(rec: dict) -> str:
     return "3+ positions, 100+ snaps each" if rec["is_versatile_strict"] else "3+ positions played"
 
 
-def _starter_bullet(rec: dict) -> str | None:
-    return "Top starter, '24 & '25" if rec["is_reliable_starter"] else None
-
-
 def build_reasons(rec: dict, winner: str | None) -> list[str]:
     if winner is None:
         return []
@@ -670,9 +666,11 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
         # player can land here missing EITHER size or explosive (not
         # necessarily both, see mopup_classify), so try both rather than
         # size only, which previously showed nothing extra for a player who
-        # had real explosive data but no size.
+        # had real explosive data but no size. May end up with 0-2 bullets
+        # depending on what data actually exists -- the archetype name
+        # itself already conveys "reliable starter", so no text bullet
+        # substitutes for it when neither measurable is available.
         bullets = [
-            _starter_bullet(rec),
             _pctl_bullet("size", rec["size_pctl"]),
             _pctl_bullet("athleticism", rec["explosive_pctl"]),
         ]
