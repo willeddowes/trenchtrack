@@ -135,12 +135,12 @@ export default async function PlayerPage({
           <img
             src={player.headshot_url}
             alt={displayName}
-            width={126}
-            height={126}
+            width={164}
+            height={164}
             className="rounded-full object-cover"
           />
         ) : (
-          <div className="h-[126px] w-[126px] shrink-0 rounded-full bg-gray-200" aria-label={displayName} />
+          <div className="h-[164px] w-[164px] shrink-0 rounded-full bg-gray-200" aria-label={displayName} />
         )}
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
