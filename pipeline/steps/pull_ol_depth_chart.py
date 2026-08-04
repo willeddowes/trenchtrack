@@ -37,6 +37,15 @@ GENERIC_OL_POSITIONS = ["T", "G", "C", "OL"]  # PFR started tagging some
 # what actually determines the specific side, not this initial position tag.
 SIDE_POSITIONS = ["LT", "LG", "C", "RG", "RT"]
 
+# Both load_snap_counts() and load_depth_charts() tag pre-relocation seasons
+# with the franchise's OLD code (e.g. Raiders "OAK" through 2019), and they
+# agree with each other on it, so the join between them still works fine --
+# but `teams` (and ol_depth_chart's FK to it) only knows the CURRENT code,
+# so the old code has to be remapped on the way out. Same issue as
+# pull_team_ol_stats.py's HISTORICAL_TEAM_CODES, just needed sooner here
+# since this is the first place seasons before 2018 get pulled at all.
+HISTORICAL_TEAM_CODES = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
+
 
 def _depth_chart_by_week(season: int) -> pd.DataFrame:
     """Returns columns [club_code, week, name_norm, depth_position, gsis_id],
@@ -134,6 +143,7 @@ def pull_season_ol_depth_chart(season: int) -> pd.DataFrame:
     totals = totals.rename(
         columns={"team": "team_abbr", "depth_position": "position", "gsis_id": "player_id", "player": "player_name"}
     )
+    totals["team_abbr"] = totals["team_abbr"].replace(HISTORICAL_TEAM_CODES)
     totals["snaps"] = totals["offense_snaps"].astype(int)
     totals["season"] = season
     totals = totals.sort_values(["team_abbr", "position", "snaps"], ascending=[True, True, False])
