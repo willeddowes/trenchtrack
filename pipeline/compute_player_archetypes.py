@@ -55,6 +55,12 @@ STARTER_CHECK_SEASONS = {2024, 2025}  # "the past 2 seasons" for All-Around Reli
 HONORS_RECENT_SEASONS = {2021, 2022, 2023, 2024, 2025}
 POSITION_GROUP = {"LT": "Tackle", "RT": "Tackle", "LG": "Guard", "RG": "Guard", "C": "Center"}
 
+# Matches web/lib/teamsStatic.ts's CURRENT_SEASON -- duplicated here for the
+# same reason the grading formula is duplicated across languages (see
+# CLAUDE.md): this is a small Python script with no shared config with the
+# Next.js app. Used only for the Blue Chip young-player honors exception below.
+CURRENT_SEASON = 2025
+
 ELITE, ABOVE_AVG, AVERAGE, BELOW_AVG = "elite", "above_average", "average", "below_average"
 
 # Blue Chip Freak gets its own, lower elite bar (both Size and Explosive
@@ -109,7 +115,7 @@ def load_players_data():
     depth = fetch_all(
         client, "ol_depth_chart", "player_id,player_name,season,position,snaps,depth_rank", not_null="player_id"
     )
-    players = fetch_all(client, "players", "player_id,draft_round,draft_pick,height,weight")
+    players = fetch_all(client, "players", "player_id,draft_round,draft_pick,draft_year,height,weight")
     combine = fetch_all(
         client,
         "player_combine",
@@ -213,6 +219,7 @@ def build_player_records(depth, players, combine, honors):
     for pid, rec in by_player.items():
         p = players_by_id.get(pid)
         rec["draft_pick"] = p["draft_pick"] if p else None
+        rec["draft_year"] = p["draft_year"] if p else None
 
         c = combine_by_id.get(pid)
 
@@ -417,20 +424,51 @@ RANGY_ARCHETYPE_BY_POSITION = {
 }
 
 
+def _blue_chip_honors_eligible(rec: dict) -> bool:
+    """Blue Chip's honors bar is the standard rec["honors_eligible"] (an
+    All-Pro, or 2+ Pro Bowls, in the last 5 seasons) for everyone EXCEPT a
+    player in year 2-4 of his career (draft_year 1-3 seasons before
+    CURRENT_SEASON), who only needs 1 Pro Bowl -- he simply hasn't had
+    enough healthy seasons yet to rack up a second one the way an
+    established veteran has, and holding him to the veteran bar would
+    punish being young rather than being unproven (e.g. Joe Alt, a
+    unanimously-regarded elite tackle prospect with a 2025 Pro Bowl already,
+    drafted 2024 -> year 2). A true rookie (year 1, drafted this season)
+    still needs the full bar -- effectively All-Pro only, since 2 Pro Bowls
+    is impossible with zero prior seasons -- "new" isn't the same as
+    "hasn't played a season yet"."""
+    draft_year = rec["draft_year"]
+    if draft_year is not None:
+        career_year = CURRENT_SEASON - draft_year + 1
+        if 2 <= career_year <= 4:
+            return rec["is_all_pro"] or rec["pro_bowl_count"] >= 1
+    return rec["honors_eligible"]
+
+
 def classify(rec: dict) -> str | None:
     is_top_50_pick = rec["draft_pick"] is not None and rec["draft_pick"] <= 50
     # Blue Chip Freak's bar is deliberately looser than the general ELITE
     # tier (72.5 vs 65+ elsewhere) -- calibrated specifically to get "at
-    # least 5" among top-50 picks.
+    # least 5" among top-50 picks. Both Blue Chip archetypes also require
+    # real-world recognition (_blue_chip_honors_eligible() -- see its
+    # docstring for the young-player exception): a top-50 pick with elite
+    # measurables but no NFL production to show for it yet isn't a "Blue
+    # Chip" in the sense this label means, it's a bust or still unproven --
+    # per user request, a player who fails this falls through to whatever
+    # their next best-fit archetype is, exactly as if their draft
+    # position/measurables never qualified them for Blue Chip in the first
+    # place.
+    blue_chip_honors_eligible = _blue_chip_honors_eligible(rec)
     freak_eligible = (
         is_top_50_pick
         and rec["size_pctl"] is not None and rec["size_pctl"] >= FREAK_ELITE_THRESHOLD
         and rec["explosive_pctl"] is not None and rec["explosive_pctl"] >= FREAK_ELITE_THRESHOLD
+        and blue_chip_honors_eligible
     )
     freak_athlete_eligible = (
         not is_top_50_pick and tier(rec["size_pctl"]) == ELITE and tier(rec["explosive_pctl"]) == ELITE
     )
-    blue_chip_eligible = is_top_50_pick and tier(rec["size_pctl"]) == ELITE
+    blue_chip_eligible = is_top_50_pick and tier(rec["size_pctl"]) == ELITE and blue_chip_honors_eligible
 
     # Real-world recognition (an All-Pro, or 2+ Pro Bowls, in the last 5
     # seasons) overrides the measurement-based label -- but Blue Chip still
