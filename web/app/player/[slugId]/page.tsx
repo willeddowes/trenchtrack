@@ -5,6 +5,7 @@ import { createAnonServerClient } from "@/lib/supabase/server";
 import { buildPlayerSlug, parsePlayerIdFromSlug } from "@/lib/playerSlug";
 import { ordinal } from "@/lib/formatRank";
 import { HonorBadge } from "@/components/HonorBadge";
+import { TeamLogo } from "@/components/TeamLogo";
 import type { PlayerCombine } from "@/lib/getPlayerPageData";
 
 // Prebuilds a page for every player who's ever logged an O-line snap with a
@@ -103,7 +104,7 @@ export default async function PlayerPage({
   const data = await getPlayerPageData(playerId);
   if (!data) notFound();
 
-  const { player, displayName, career, combine, allTimeHonors, archetype, primaryPosition } = data;
+  const { player, displayName, career, combine, allTimeHonors, archetype, primaryPosition, currentTeamLogoUrl } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
         const pa = combine[a.percentileField] as number | null;
@@ -114,7 +115,6 @@ export default async function PlayerPage({
       })
     : [];
   const position = primaryPosition;
-  const pastTeams = [...new Map(career.map((c) => [c.team_abbr, c])).values()];
 
   // Career honor totals for the header, e.g. "4x Pro Bowl" -- ordered by
   // prestige (Pro Bowl, then 1st-Team, then 2nd-Team All-Pro), not by count.
@@ -143,15 +143,13 @@ export default async function PlayerPage({
           <div className="h-[72px] w-[72px] shrink-0 rounded-full bg-gray-200" aria-label={displayName} />
         )}
         <div className="flex-1">
-          <div className="flex flex-wrap items-baseline gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-extrabold tracking-tight">{displayName}</h1>
             {position && <span className="text-sm font-bold text-ink-muted">{position}</span>}
+            {currentTeamLogoUrl && (
+              <TeamLogo team={{ logo_url: currentTeamLogoUrl, team_name: career[0].team_name }} size={40} />
+            )}
           </div>
-          {pastTeams.length > 0 && (
-            <p className="mt-1 text-xs text-ink-muted">
-              {pastTeams.map((t) => t.team_name).join(" · ")}
-            </p>
-          )}
           {archetype && (
             <div className="mt-2 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs">
               <span className="font-semibold text-ink">{archetype.archetype}</span>

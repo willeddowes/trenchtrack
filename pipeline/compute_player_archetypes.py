@@ -589,7 +589,10 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
     if winner == "Blue Chip Freak":
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner == "Blue Chip Mauler":
-        bullets = ["Top-50 pick", _weight_or_size_bullet(rec)]
+        # Draft position is what routes a player here in the first place
+        # (see classify()), but it's not a measurable -- the box should lead
+        # with actual size/athleticism, same as every other archetype.
+        bullets = [_weight_or_size_bullet(rec), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner in ("Elite Freak Athlete", "Freak Athlete"):
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner.startswith("Elite Power "):
@@ -613,15 +616,28 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
     elif winner == "Rangy Swing Tackle":
         bullets = ["LT & RT snaps", _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner == "Power Versatile OL":
-        bullets = [_versatility_bullet(rec), _weight_or_size_bullet(rec)]
+        bullets = [
+            _versatility_bullet(rec),
+            _weight_or_size_bullet(rec),
+            _pctl_bullet("athleticism", rec["explosive_pctl"]),
+        ]
     elif winner == "Power Swing Tackle":
-        bullets = ["LT & RT snaps", _weight_or_size_bullet(rec)]
+        bullets = ["LT & RT snaps", _weight_or_size_bullet(rec), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner in ("Limited Athlete Technician", "Undersized Technician"):
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner == "Undersized & Explosive":
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner == "All-Around Reliable Starter":
-        bullets = [_starter_bullet(rec), _pctl_bullet("size", rec["size_pctl"])]
+        # This archetype is the no-combine-data-required fallback -- a
+        # player can land here missing EITHER size or explosive (not
+        # necessarily both, see mopup_classify), so try both rather than
+        # size only, which previously showed nothing extra for a player who
+        # had real explosive data but no size.
+        bullets = [
+            _starter_bullet(rec),
+            _pctl_bullet("size", rec["size_pctl"]),
+            _pctl_bullet("athleticism", rec["explosive_pctl"]),
+        ]
     else:
         bullets = []
     return [b for b in bullets if b][:3]

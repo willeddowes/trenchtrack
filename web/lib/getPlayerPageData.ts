@@ -5,6 +5,7 @@ export type PlayerCareerRow = {
   team_abbr: string;
   team_name: string;
   team_slug: string;
+  team_logo_url: string | null;
   position: string;
   depth_rank: number;
   snaps: number;
@@ -65,6 +66,12 @@ export type PlayerPageData = {
    * from ol_depth_chart's per-season LT/RT/LG/RG/C rows: whichever of
    * OT/OG/C group has the most total career snaps. */
   primaryPosition: "OT" | "OG" | "C" | null;
+  /** Most recent team's logo, for the header -- career[0] rather than a
+   * separate query, since careerRows is already ordered by season
+   * descending and this needs to work the same for active players (whose
+   * latest row is their current team) and retired ones (whose latest row
+   * is their final team). */
+  currentTeamLogoUrl: string | null;
 };
 
 const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
@@ -95,7 +102,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
       .maybeSingle(),
     supabase
       .from("ol_depth_chart")
-      .select("season, position, depth_rank, snaps, player_name, teams(team_abbr, team_name, slug)")
+      .select("season, position, depth_rank, snaps, player_name, teams(team_abbr, team_name, slug, logo_url)")
       .eq("player_id", playerId)
       .order("season", { ascending: false }),
     supabase.from("player_honors").select("season, team_abbr, honor").eq("player_id", playerId),
@@ -149,6 +156,10 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     allTimeHonors: (honors ?? []).map((h) => h.honor),
     archetype: archetype ?? null,
     primaryPosition,
+    currentTeamLogoUrl: (() => {
+      const team = Array.isArray(careerRows[0].teams) ? careerRows[0].teams[0] : careerRows[0].teams;
+      return team?.logo_url ?? null;
+    })(),
     career: careerRows.map((row) => {
       // Supabase's JS client types embedded relations as arrays even for
       // a to-one join -- it's always exactly one team here.
@@ -158,6 +169,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
         team_abbr: team?.team_abbr ?? "",
         team_name: team?.team_name ?? "",
         team_slug: team?.slug ?? "",
+        team_logo_url: team?.logo_url ?? null,
         position: row.position,
         depth_rank: row.depth_rank,
         snaps: row.snaps,
