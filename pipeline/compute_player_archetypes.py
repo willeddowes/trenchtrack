@@ -338,10 +338,33 @@ def _power_explosive_ok(r) -> bool:
     return t == ABOVE_AVG and r["size_pctl"] is not None and r["size_pctl"] >= POWER_TOP_SIZE_PERCENTILE
 
 
+# "Long Rangy Tackle" implies genuinely long arms, not just "not short" --
+# a Tackle who clears the general length tier (40+) but sits below 60 reads
+# as "Rangy Tackle" instead (same explosiveness story, just not a length
+# standout). Applies everywhere a Tackle can land in the Rangy family,
+# including the mopup passes below, which previously had no length floor
+# at all for this specific case.
+LONG_TACKLE_LENGTH_THRESHOLD = 60
+
+
+def _tackle_rangy_label(length_pctl: float | None) -> str:
+    if length_pctl is not None and length_pctl >= LONG_TACKLE_LENGTH_THRESHOLD:
+        return "Long Rangy Tackle"
+    return "Rangy Tackle"
+
+
 MIDDLE_ARCHETYPES = [
     (
         "Long Rangy Tackle",
         lambda r: r["primary_position"] == "Tackle" and tier(r["length_pctl"]) in (ABOVE_AVG, ELITE)
+        and r["length_pctl"] >= LONG_TACKLE_LENGTH_THRESHOLD
+        and tier(r["explosive_pctl"]) in (ABOVE_AVG, ELITE) and not _rangy_blocked_by_size(r),
+        lambda r: _margin(r["length_pctl"]) + _margin(r["explosive_pctl"]),
+    ),
+    (
+        "Rangy Tackle",
+        lambda r: r["primary_position"] == "Tackle" and tier(r["length_pctl"]) in (ABOVE_AVG, ELITE)
+        and r["length_pctl"] < LONG_TACKLE_LENGTH_THRESHOLD
         and tier(r["explosive_pctl"]) in (ABOVE_AVG, ELITE) and not _rangy_blocked_by_size(r),
         lambda r: _margin(r["length_pctl"]) + _margin(r["explosive_pctl"]),
     ),
@@ -418,6 +441,11 @@ POWER_ARCHETYPE_BY_POSITION = {
     "Guard": "Road Grader Guard",
 }
 RANGY_ARCHETYPE_BY_POSITION = {
+    # "Tackle"'s value here is never actually read (every call site special-
+    # cases Tackle via _tackle_rangy_label before falling back to .get() on
+    # this dict, since which Rangy-Tackle label applies depends on length,
+    # not just position) -- the key still has to exist for the plain
+    # membership check below (`primary_position in RANGY_ARCHETYPE_BY_POSITION`).
     "Tackle": "Long Rangy Tackle",
     "Center": "Rangy Center",
     "Guard": "Rangy Guard",
@@ -524,8 +552,14 @@ def classify(rec: dict) -> str | None:
 #      matches their primary position.
 #   3. Remaining Tackles with above-average Size who didn't clear Long
 #      Rangy Tackle's normal Length bar (two sub-cases on Explosive tier).
+#      Labeled "Long Rangy Tackle" vs "Rangy Tackle" per _tackle_rangy_label
+#      -- these length floors (15/20) are well below LONG_TACKLE_LENGTH_THRESHOLD
+#      (60), so most of this step's matches land as "Rangy Tackle".
 #   4. Everyone else with elite Explosive and above-average/average Size ->
-#      the Rangy archetype for their position.
+#      the Rangy archetype for their position (Tackle again split by
+#      _tackle_rangy_label -- this step has no length check at all, so
+#      without the split it used to hand out "Long Rangy Tackle" to Tackles
+#      with arbitrarily short arms).
 #   5. Elite Size + above-average Explosive -> Power/Road Grader by position.
 #   6. Last resort: whoever's been the outright top snap-getter at their
 #      position in both of the last 2 seasons -> All-Around Reliable Starter.
@@ -554,14 +588,16 @@ def mopup_classify(rec: dict) -> str | None:
         and rec["length_pctl"] is not None
     ):
         if tier(rec["explosive_pctl"]) == ELITE and rec["length_pctl"] >= LONG_TACKLE_ELITE_EXPLOSIVE_LENGTH_MIN:
-            return "Long Rangy Tackle"
+            return _tackle_rangy_label(rec["length_pctl"])
         if (
             tier(rec["explosive_pctl"]) == ABOVE_AVG
             and rec["length_pctl"] >= LONG_TACKLE_ABOVE_AVG_LENGTH_MIN
             and rec["explosive_pctl"] >= LONG_TACKLE_ABOVE_AVG_EXPLOSIVE_MIN
         ):
-            return "Long Rangy Tackle"
+            return _tackle_rangy_label(rec["length_pctl"])
     if tier(rec["explosive_pctl"]) == ELITE and tier(rec["size_pctl"]) in (ABOVE_AVG, AVERAGE):
+        if rec["primary_position"] == "Tackle":
+            return _tackle_rangy_label(rec["length_pctl"])
         return RANGY_ARCHETYPE_BY_POSITION.get(rec["primary_position"])
     if (
         tier(rec["size_pctl"]) == ELITE
@@ -643,6 +679,11 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
         bullets = [_weight_or_size_bullet(rec), _agility_bullet(rec)]
     elif winner == "Long Rangy Tackle":
         bullets = [_pctl_bullet("length", rec["length_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+    elif winner == "Rangy Tackle":
+        # Unlike Long Rangy Tackle, length isn't the story here (that's the
+        # whole reason for the split) -- size + athleticism, same as Rangy
+        # Center/Guard.
+        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner in ("Rangy Center", "Rangy Guard"):
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner == "Rangy Versatile OL":
