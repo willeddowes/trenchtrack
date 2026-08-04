@@ -44,6 +44,10 @@ def pull_players(season: int) -> list[dict]:
                 "draft_round": _clean_int(b["draft_round"]) if b is not None else None,
                 "draft_pick": _clean_int(b["draft_pick"]) if b is not None else None,
                 "draft_team": None if b is None or pd.isna(b["draft_team"]) else b["draft_team"],
+                # Undrafted players have no draft_year, but load_players()
+                # still has rookie_season for them -- lets the player page
+                # show "20XX Undrafted" instead of hiding the Draft field.
+                "rookie_season": _clean_int(b["rookie_season"]) if b is not None else None,
             }
         )
     return rows

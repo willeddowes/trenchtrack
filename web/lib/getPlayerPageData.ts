@@ -47,6 +47,7 @@ export type PlayerPageData = {
     draft_round: number | null;
     draft_pick: number | null;
     draft_team: string | null;
+    rookie_season: number | null;
   } | null;
   displayName: string;
   career: PlayerCareerRow[];
@@ -96,7 +97,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     supabase
       .from("players")
       .select(
-        "player_id, full_name, position, team_abbr, headshot_url, height, weight, college, draft_year, draft_round, draft_pick, draft_team"
+        "player_id, full_name, position, team_abbr, headshot_url, height, weight, college, draft_year, draft_round, draft_pick, draft_team, rookie_season"
       )
       .eq("player_id", playerId)
       .maybeSingle(),

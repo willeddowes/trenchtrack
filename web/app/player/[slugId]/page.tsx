@@ -171,7 +171,7 @@ export default async function PlayerPage({
         </div>
       </header>
 
-      {player && (player.height || player.weight || player.college || player.draft_year) && (
+      {player && (player.height || player.weight || player.college || player.draft_year || player.rookie_season) && (
         <section className="rounded-2xl border border-line bg-surface p-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Bio</h2>
           <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
@@ -193,13 +193,13 @@ export default async function PlayerPage({
                 <dd className="font-semibold">{player.college}</dd>
               </div>
             )}
-            {player.draft_year && (
+            {(player.draft_year || player.rookie_season) && (
               <div>
                 <dt className="text-xs text-ink-muted">Draft</dt>
                 <dd className="font-semibold">
-                  {player.draft_round && player.draft_pick
+                  {player.draft_year && player.draft_round && player.draft_pick
                     ? `${player.draft_year} · Rd ${player.draft_round}, ${ordinal(player.draft_pick)} overall`
-                    : `${player.draft_year} · Undrafted`}
+                    : `${player.draft_year ?? player.rookie_season} · Undrafted`}
                 </dd>
               </div>
             )}
