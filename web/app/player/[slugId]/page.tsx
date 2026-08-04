@@ -115,7 +115,6 @@ export default async function PlayerPage({
     primaryPosition,
     currentTeamLogoUrl,
     injuryHistory,
-    injuryPercentile,
   } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
@@ -301,7 +300,7 @@ export default async function PlayerPage({
       </div>
 
       {injuryHistory.length > 0 && (
-        <InjuryHistoryCard injuryHistory={injuryHistory} injuryPercentile={injuryPercentile} />
+        <InjuryHistoryCard injuryHistory={injuryHistory} />
       )}
     </main>
   );
