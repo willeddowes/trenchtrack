@@ -13,14 +13,20 @@ comes in and you want archetypes refreshed -- it's a full upsert, safe to
 re-run any time.
 
 Dimensions (each a 0-100 percentile):
-  Size        - height+weight. Prefers mockdraftable's own height/weight
-                percentile (already position-relative); falls back to a
-                percentile computed ourselves from raw height+weight
+  Size        - avg(height percentile, weight percentile). Height prefers
+                mockdraftable's own percentile (already position-relative,
+                and height doesn't drift over a career, so staleness isn't
+                a concern); falls back to a percentile computed ourselves
                 against other tracked players at the same primary position
-                (Tackle/Guard/Center), for players mockdraftable didn't
-                percentile (nflreadpy-sourced combine rows, or players with
-                only a `players`-table height/weight and no combine match
-                at all).
+                for players mockdraftable didn't percentile. Weight is
+                ALWAYS computed ourselves from the latest known weight
+                (`players.weight`, refreshed every pipeline pull, preferred
+                over player_combine's frozen combine-day weight) rather than
+                trusting mockdraftable's percentile directly -- a veteran's
+                weight can move 20+ lbs since being drafted (e.g. Lane
+                Johnson: 303 lbs at his 2013 combine vs. 325 today), and a
+                percentile computed off the old number would misjudge his
+                current Size.
   Length      - avg(arm_length_percentile, wingspan_percentile), mockdraftable-only.
   Explosive   - avg of whichever of forty/vertical/broad_jump/cone/shuttle/
                 bench percentiles are present, mockdraftable-only (nflreadpy
@@ -52,13 +58,20 @@ POSITION_GROUP = {"LT": "Tackle", "RT": "Tackle", "LG": "Guard", "RG": "Guard", 
 ELITE, ABOVE_AVG, AVERAGE, BELOW_AVG = "elite", "above_average", "average", "below_average"
 
 # Blue Chip Freak gets its own, lower elite bar (both Size and Explosive
-# must clear this) -- data-derived: the 5th-best pick<=50 candidate by
-# min(size_pctl, explosive_pctl) is Joe Alt at 72.667 (not 73 -- that was
-# print-rounding), and the 6th/7th (Ragnow, Campbell) tie exactly at 72.0,
-# so 72.5 is the threshold that yields exactly "at least 5" without
-# overshooting to 7. Blue Chip Mauler still gates on the general ELITE
-# tier below for its Size requirement.
-FREAK_ELITE_THRESHOLD = 72.5
+# must clear this). Originally 72.5 (yielded exactly the top 5 by
+# min(size_pctl, explosive_pctl)); revised down after the Size fix above
+# changed weight_pctl for every player with a current weight different from
+# their combine weight -- Lane Johnson's Size moved from 37.5 to 70.5 (see
+# that fix's comment), landing him at min=70.48, just under the old 72.5
+# bar, despite an unambiguously elite 91.7 Explosive. Per user request he
+# should qualify -- 70.0 is the lowest threshold that includes him without
+# also sweeping in the next-lower candidate (Quenton Nelson at 69.4), and
+# ends up admitting the top 7 by this ranking rather than 5 (Lane Johnson
+# plus Frank Ragnow, who was already sitting just above the old bar at
+# exactly 72.0 -- any single threshold that admits Johnson necessarily
+# admits everyone already ranked higher). Blue Chip Mauler still gates on
+# the general ELITE tier below for its Size requirement.
+FREAK_ELITE_THRESHOLD = 70.0
 
 # Lowered from 200 -- most players who already cleared 200 at both LT and RT
 # in a season but stayed uncategorized were failing on trait data (missing
@@ -187,7 +200,9 @@ def build_player_records(depth, players, combine, honors):
         if h and w:
             raw_size[pid] = (float(h), float(w), rec["primary_position"])
 
-    # Our own position-relative Size percentile, for players without mockdraftable's.
+    # Position-relative populations for our own percentile_rank() calls below
+    # -- weight always uses this (see the loop below for why); height only
+    # falls back to it when mockdraftable has no percentile for a player.
     by_position_heights: dict[str, list[float]] = {}
     by_position_weights: dict[str, list[float]] = {}
     for pid, (h, w, pos) in raw_size.items():
@@ -200,16 +215,34 @@ def build_player_records(depth, players, combine, honors):
         rec["draft_pick"] = p["draft_pick"] if p else None
 
         c = combine_by_id.get(pid)
-        mockdraftable_size = avg(c["height_percentile"], c["weight_percentile"]) if c else None
-        if mockdraftable_size is not None:
-            rec["size_pctl"] = mockdraftable_size
+
+        # Height: mockdraftable's own percentile is trusted directly -- height
+        # doesn't drift over a career the way weight does, so there's no
+        # staleness concern here.
+        mockdraftable_height_pctl = c["height_percentile"] if c else None
+        if mockdraftable_height_pctl is not None:
+            height_pctl = mockdraftable_height_pctl
         elif pid in raw_size and raw_size[pid][2]:
-            h, w, pos = raw_size[pid]
-            h_pctl = percentile_rank(h, by_position_heights[pos])
-            w_pctl = percentile_rank(w, by_position_weights[pos])
-            rec["size_pctl"] = (h_pctl + w_pctl) / 2
+            h, _, pos = raw_size[pid]
+            height_pctl = percentile_rank(h, by_position_heights[pos])
         else:
-            rec["size_pctl"] = None
+            height_pctl = None
+
+        # Weight: ALWAYS our own percentile from the latest known weight
+        # (raw_size already prefers players.weight -- refreshed every
+        # pipeline pull -- over player_combine's frozen combine-day weight)
+        # -- never mockdraftable's percentile directly, since that's frozen
+        # at whatever a player weighed on his combine day and can't reflect
+        # a decade of bulking up/down since. Also used standalone (not
+        # blended with height) for the "one of the lightest at his position"
+        # Power disqualification and the "weight" reason bullet.
+        if pid in raw_size and raw_size[pid][2]:
+            _, w, pos = raw_size[pid]
+            rec["weight_pctl"] = percentile_rank(w, by_position_weights[pos])
+        else:
+            rec["weight_pctl"] = None
+
+        rec["size_pctl"] = avg(height_pctl, rec["weight_pctl"])
 
         rec["length_pctl"] = avg(c["arm_length_percentile"], c["wingspan_percentile"]) if c else None
         rec["explosive_pctl"] = (
@@ -222,20 +255,6 @@ def build_player_records(depth, players, combine, honors):
         )
         rec["cone_pctl"] = c["cone_percentile"] if c else None
         rec["shuttle_pctl"] = c["shuttle_percentile"] if c else None
-
-        # Weight specifically (not blended with height like size_pctl) --
-        # needed for the "one of the lightest at his position" Power
-        # disqualification, since a tall-but-light player's composite Size
-        # can look above-average even when his actual weight doesn't -- and
-        # for the "weight" reason bullet on Power/Road-Grader archetypes.
-        mockdraftable_weight = c["weight_percentile"] if c else None
-        if mockdraftable_weight is not None:
-            rec["weight_pctl"] = mockdraftable_weight
-        elif pid in raw_size and raw_size[pid][2]:
-            _, w, pos = raw_size[pid]
-            rec["weight_pctl"] = percentile_rank(w, by_position_weights[pos])
-        else:
-            rec["weight_pctl"] = None
         rec["bench_pctl"] = c["bench_percentile"] if c else None
 
     return by_player
@@ -556,16 +575,6 @@ def _agility_bullet(rec: dict) -> str | None:
     return _pctl_bullet("athleticism", rec["explosive_pctl"])
 
 
-def _honors_bullet(rec: dict) -> str | None:
-    if rec["is_all_pro"]:
-        return "All-Pro"
-    if rec["pro_bowl_count"] >= 2:
-        return f"{rec['pro_bowl_count']}x Pro Bowl"
-    if rec["pro_bowl_count"] == 1:
-        return "Pro Bowl"
-    return None
-
-
 def _versatility_bullet(rec: dict) -> str:
     return "3+ positions, 100+ snaps each" if rec["is_versatile_strict"] else "3+ positions played"
 
@@ -581,14 +590,18 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner == "Blue Chip Mauler":
         bullets = ["Top-50 pick", _weight_or_size_bullet(rec)]
-    elif winner == "Elite Freak Athlete":
-        bullets = [_honors_bullet(rec), _pctl_bullet("athleticism", rec["explosive_pctl"])]
-    elif winner == "Freak Athlete":
+    elif winner in ("Elite Freak Athlete", "Freak Athlete"):
         bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner.startswith("Elite Power "):
-        bullets = [_honors_bullet(rec), _weight_or_size_bullet(rec)]
+        # Same measurables as the non-honors Power/Road-Grader archetypes --
+        # the honor itself is already shown as a badge below, so the box
+        # here should only ever explain the *measurable* fit.
+        bullets = [_weight_or_size_bullet(rec), _agility_bullet(rec)]
     elif winner.startswith("Elite Rangy "):
-        bullets = [_honors_bullet(rec), _length_or_athleticism_bullet(rec)]
+        if rec["primary_position"] == "Tackle":
+            bullets = [_pctl_bullet("length", rec["length_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        else:
+            bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
     elif winner in ("Power Tackle", "Road Grader Center", "Road Grader Guard"):
         bullets = [_weight_or_size_bullet(rec), _agility_bullet(rec)]
     elif winner == "Long Rangy Tackle":
