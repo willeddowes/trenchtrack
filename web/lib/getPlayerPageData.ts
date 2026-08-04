@@ -12,6 +12,12 @@ export type PlayerCareerRow = {
   honors: string[];
 };
 
+export type PlayerInjuryEntry = {
+  season: number;
+  injuryDescription: string | null;
+  weeksOut: number;
+};
+
 export type PlayerCombine = {
   arm_length: number | null;
   hand_size: number | null;
@@ -73,6 +79,13 @@ export type PlayerPageData = {
    * latest row is their current team) and retired ones (whose latest row
    * is their final team). */
   currentTeamLogoUrl: string | null;
+  /** Grouped by (season, injury_description) -- player_injury_reports only
+   * stores weeks a player was ruled OUT (see that table's comment in
+   * schema.sql), so each entry here is a real missed-game count, not just
+   * a report appearance. Sorted most recent season first. */
+  injuryHistory: PlayerInjuryEntry[];
+  /** Sum of injuryHistory[].weeksOut -- career total, shown as the card's headline stat. */
+  totalWeeksOut: number;
 };
 
 const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
@@ -91,7 +104,7 @@ const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
 export async function getPlayerPageData(playerId: string): Promise<PlayerPageData | null> {
   const supabase = createAnonServerClient();
 
-  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }] = await Promise.all([
+  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }, { data: injuryRows }] = await Promise.all([
     // Nullable on purpose: retired/departed players have career rows below
     // but no row here, since `players` only ever holds the current roster.
     supabase
@@ -119,6 +132,14 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     // Nullable: only players the classifier could categorize have a row
     // (see compute_player_archetypes.py) -- some players have no archetype.
     supabase.from("player_archetypes").select("archetype, reasons").eq("player_id", playerId).maybeSingle(),
+    // Empty for most players most seasons (healthy) -- see player_injury_reports'
+    // comment in schema.sql for why this is Out-only, not every report appearance.
+    supabase
+      .from("player_injury_reports")
+      .select("season, week, injury_description")
+      .eq("player_id", playerId)
+      .order("season", { ascending: false })
+      .order("week", { ascending: true }),
   ]);
 
   if (!careerRows || careerRows.length === 0) return null;
@@ -150,6 +171,24 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     }
   }
 
+  // Group into one entry per (season, injury_description) -- e.g. a player
+  // out weeks 3/4/6/11/13 of the same season with a lingering knee issue
+  // reads as one "2016 · Knee · 5 weeks" line, not five separate rows.
+  // Grouping by exact week-adjacency instead would fragment a single
+  // recurring injury into several near-meaningless 1-2 week entries.
+  const injuryGroups = new Map<string, PlayerInjuryEntry>();
+  for (const row of injuryRows ?? []) {
+    const key = `${row.season}:${row.injury_description ?? ""}`;
+    const existing = injuryGroups.get(key);
+    if (existing) {
+      existing.weeksOut += 1;
+    } else {
+      injuryGroups.set(key, { season: row.season, injuryDescription: row.injury_description, weeksOut: 1 });
+    }
+  }
+  const injuryHistory = [...injuryGroups.values()].sort((a, b) => b.season - a.season);
+  const totalWeeksOut = injuryHistory.reduce((sum, entry) => sum + entry.weeksOut, 0);
+
   return {
     player,
     displayName,
@@ -157,6 +196,8 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     allTimeHonors: (honors ?? []).map((h) => h.honor),
     archetype: archetype ?? null,
     primaryPosition,
+    injuryHistory,
+    totalWeeksOut,
     currentTeamLogoUrl: (() => {
       const team = Array.isArray(careerRows[0].teams) ? careerRows[0].teams[0] : careerRows[0].teams;
       return team?.logo_url ?? null;

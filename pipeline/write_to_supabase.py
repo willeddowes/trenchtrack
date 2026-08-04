@@ -73,6 +73,20 @@ def upsert_player_archetypes(client: Client, rows: list[dict]) -> None:
     client.table("player_archetypes").upsert(_records(rows), on_conflict="player_id").execute()
 
 
+def upsert_player_injury_reports(client: Client, rows: list[dict]) -> None:
+    if not rows:
+        return
+    # Chunked (unlike this file's other upserts) -- a full multi-season
+    # backfill is thousands of rows, comfortably more than any other
+    # single upsert call in this pipeline.
+    records = _records(rows)
+    chunk_size = 500
+    for i in range(0, len(records), chunk_size):
+        client.table("player_injury_reports").upsert(
+            records[i : i + chunk_size], on_conflict="player_id,season,week"
+        ).execute()
+
+
 def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> None:
     """Like replace_injuries -- each run replaces the whole season's ranked
     list, since the shape of the ranking (how many backups logged snaps at

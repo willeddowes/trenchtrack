@@ -6,6 +6,7 @@ import { buildPlayerSlug, parsePlayerIdFromSlug } from "@/lib/playerSlug";
 import { ordinal } from "@/lib/formatRank";
 import { HonorBadge } from "@/components/HonorBadge";
 import { TeamLogo } from "@/components/TeamLogo";
+import { InjuryHistoryCard } from "@/components/InjuryHistoryCard";
 import type { PlayerCombine } from "@/lib/getPlayerPageData";
 
 // Prebuilds a page for every player who's ever logged an O-line snap with a
@@ -104,7 +105,18 @@ export default async function PlayerPage({
   const data = await getPlayerPageData(playerId);
   if (!data) notFound();
 
-  const { player, displayName, career, combine, allTimeHonors, archetype, primaryPosition, currentTeamLogoUrl } = data;
+  const {
+    player,
+    displayName,
+    career,
+    combine,
+    allTimeHonors,
+    archetype,
+    primaryPosition,
+    currentTeamLogoUrl,
+    injuryHistory,
+    totalWeeksOut,
+  } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
         const pa = combine[a.percentileField] as number | null;
@@ -222,6 +234,10 @@ export default async function PlayerPage({
             )}
           </dl>
         </section>
+      )}
+
+      {injuryHistory.length > 0 && (
+        <InjuryHistoryCard injuryHistory={injuryHistory} totalWeeksOut={totalWeeksOut} />
       )}
 
       <div className={`grid grid-cols-1 gap-4 ${combineRows.length > 0 ? "lg:grid-cols-[200px_1fr]" : ""}`}>

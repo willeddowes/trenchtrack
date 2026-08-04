@@ -171,6 +171,33 @@ create index if not exists injuries_team_season_week_idx
   on injuries (team_abbr, season, week);
 
 -- ============================================================================
+-- player_injury_reports: full weekly injury-report HISTORY per player,
+-- unlike `injuries` above (current snapshot only, latest week, replaced
+-- each run). This is append-only-by-upsert -- every (player, season, week)
+-- they were ruled OUT, going back to 2013 (this project's existing
+-- depth-chart/snap-history floor). Deliberately Out-only, not every
+-- report appearance -- Questionable/Doubtful/Probable/Note don't reliably
+-- mean a missed game, and the whole point of this table is counting weeks
+-- actually missed (see pull_injury_history.py). Powers the player page's
+-- Injury History card. No FK on player_id, same reasoning as
+-- ol_depth_chart/player_combine: spans retired/departed players not in
+-- the current-roster-only `players` table.
+-- ============================================================================
+create table if not exists player_injury_reports (
+  player_id text not null,
+  player_name text not null,
+  position text,
+  team_abbr text not null references teams (team_abbr),
+  season int not null,
+  week int not null,
+  status text not null,              -- always 'Out' as of this table's current pull logic --
+                                      -- no CHECK constraint, kept as a real column (not assumed)
+                                      -- in case a future pass widens what gets stored
+  injury_description text,
+  primary key (player_id, season, week)
+);
+
+-- ============================================================================
 -- team_ol_stats: the core computed table -- one row per team, per season,
 -- per week. This is stored as WEEKLY HISTORY (never overwritten) rather than
 -- a single "current" snapshot, specifically so that a future "grade over the
@@ -363,6 +390,7 @@ alter table espn_player_block_win_rates enable row level security;
 alter table player_honors enable row level security;
 alter table player_combine enable row level security;
 alter table player_archetypes enable row level security;
+alter table player_injury_reports enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -400,6 +428,9 @@ create policy "public read access" on player_combine for select using (true);
 drop policy if exists "public read access" on player_archetypes;
 create policy "public read access" on player_archetypes for select using (true);
 
+drop policy if exists "public read access" on player_injury_reports;
+create policy "public read access" on player_injury_reports for select using (true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -423,7 +454,8 @@ grant select on
   espn_player_block_win_rates,
   player_honors,
   player_combine,
-  player_archetypes
+  player_archetypes,
+  player_injury_reports
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -443,5 +475,6 @@ grant select, insert, update, delete on
   espn_player_block_win_rates,
   player_honors,
   player_combine,
-  player_archetypes
+  player_archetypes,
+  player_injury_reports
 to service_role;

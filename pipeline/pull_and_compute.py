@@ -5,7 +5,9 @@
 What it does, in order:
   1. Pulls the current roster and injury report from nflreadpy and writes
      them straight to Supabase (simple "current snapshot" overwrites --
-     see write_to_supabase.py).
+     see write_to_supabase.py). Also upserts this season's weeks into
+     player_injury_reports (full history, not a snapshot -- see that
+     table's comment in schema.sql).
   2. Pulls the season's O-line depth chart -- every player who's logged
      snaps at each position so far this season, ranked by snap count.
   3. Pulls the season's raw O-line stats (sacks, pressure, stuff rate,
@@ -26,6 +28,7 @@ import nflreadpy as nfl
 from compute_grades import compute_grades
 from steps.pull_combine import pull_combine
 from steps.pull_injuries import pull_injuries
+from steps.pull_injury_history import pull_injury_history
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_ol_draft_picks import pull_ol_draft_picks
 from steps.pull_players import pull_players
@@ -37,6 +40,7 @@ from write_to_supabase import (
     replace_ol_depth_chart,
     replace_ol_draft_picks,
     upsert_player_combine,
+    upsert_player_injury_reports,
     upsert_players,
     upsert_team_ol_stats,
 )
@@ -65,6 +69,9 @@ def main() -> None:
 
     print("Pulling injuries...")
     replace_injuries(client, season, pull_injuries(season))
+
+    print("Pulling this season's injury report history (upserts new weeks as the season progresses)...")
+    upsert_player_injury_reports(client, pull_injury_history([season]))
 
     print("Pulling raw team O-line stats (this one takes a bit, it scans full play-by-play)...")
     raw_stats = pull_team_ol_stats_raw(season)
