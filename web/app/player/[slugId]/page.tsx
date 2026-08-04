@@ -141,8 +141,12 @@ export default async function PlayerPage({
   })).filter((h) => h.count > 0);
 
   return (
-    <main className="mx-auto max-w-[80rem] space-y-4 p-8">
-      <header className="flex items-center gap-4">
+    <main className="mx-auto w-full min-w-0 max-w-[80rem] space-y-4 p-4 sm:p-8">
+      {/* Stacked and centered below sm -- the 164px headshot next to a name
+          column leaves too little room for the name/archetype/honors
+          content on a narrow screen, so it wraps awkwardly. Side by side
+          again from sm up, where there's room. */}
+      <header className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
         {player?.headshot_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -156,7 +160,7 @@ export default async function PlayerPage({
           <div className="h-[164px] w-[164px] shrink-0 rounded-full bg-gray-200" aria-label={displayName} />
         )}
         <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <h1 className="text-xl font-extrabold tracking-tight">{displayName}</h1>
             {position && <span className="text-sm font-bold text-ink-muted">{position}</span>}
             {currentTeamLogoUrl && (
@@ -164,7 +168,7 @@ export default async function PlayerPage({
             )}
           </div>
           {archetype && (
-            <div className="mt-2 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs">
+            <div className="mt-2 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs sm:justify-start">
               <span className="font-semibold text-ink">{archetype.archetype}</span>
               {archetype.reasons.map((reason) => (
                 <span key={reason} className="flex items-center gap-1.5 text-ink-muted">
@@ -175,7 +179,7 @@ export default async function PlayerPage({
             </div>
           )}
           {honorCounts.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="mt-1 flex flex-wrap justify-center gap-1 sm:justify-start">
               {honorCounts.map(({ honor, count }) => (
                 <HonorBadge key={honor} honor={honor} count={count} />
               ))}

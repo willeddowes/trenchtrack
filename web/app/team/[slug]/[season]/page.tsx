@@ -77,10 +77,10 @@ export default async function TeamPage({
   const seasonGrades = Object.fromEntries(seasonHistory.map((s) => [s.season, s.overall_grade]));
 
   return (
-    <main className="mx-auto max-w-[80rem] space-y-4 p-8">
-      <header className="flex items-center gap-4">
+    <main className="mx-auto w-full min-w-0 max-w-[80rem] space-y-4 p-4 sm:p-8">
+      <header className="flex flex-wrap items-center gap-4">
         <TeamLogo team={team} size={56} />
-        <div className="flex-1">
+        <div className="min-w-[10rem] flex-1">
           <div className="flex items-baseline gap-2">
             <h1 className="text-xl font-extrabold tracking-tight">{team.team_name}</h1>
             <span className="text-sm font-bold text-ink-muted">- {season}</span>

@@ -19,7 +19,7 @@ export function SeasonTabs({
   const sorted = [...seasons].sort((a, b) => b - a); // most recent first
 
   return (
-    <nav className="flex gap-2">
+    <nav className="flex flex-wrap gap-2">
       {sorted.map((season) => {
         const isActive = season === activeSeason;
         const grade = grades?.[season] ?? null;

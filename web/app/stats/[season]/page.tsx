@@ -35,7 +35,7 @@ export default async function StatsPage({
   const rows = await getTeamStatsTableData(season);
 
   return (
-    <main className="mx-auto max-w-[96rem] space-y-6 p-8">
+    <main className="mx-auto w-full min-w-0 max-w-[96rem] space-y-6 p-4 sm:p-8">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Team Stats</h1>
         <p className="text-sm text-ink-muted">Every metric, all 32 teams &middot; sortable</p>
