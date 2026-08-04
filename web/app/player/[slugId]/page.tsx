@@ -261,7 +261,7 @@ export default async function PlayerPage({
               {career.map((row, idx) => (
                 <tr
                   key={idx}
-                  className={seasonShade[idx] ? "bg-[color-mix(in_srgb,var(--background)_25%,white)]" : undefined}
+                  style={seasonShade[idx] ? { backgroundColor: "color-mix(in srgb, var(--background) 25%, white)" } : undefined}
                 >
                   <td className="py-1.5 pr-2 align-top font-semibold">{row.season}</td>
                   <td className="py-1.5 pr-2 align-top">{row.team_name}</td>
