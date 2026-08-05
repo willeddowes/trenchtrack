@@ -286,7 +286,11 @@ export default async function TeamPage({
                         to {m.other_team_abbr ?? "Unsigned/Retired"} &middot; {m.best_season_snaps} snaps ({m.best_season})
                       </span>
                     </div>
-                    {formatContract(m) && <div className="text-xs text-ink-muted">{formatContract(m)}</div>}
+                    {/* Only shown when we actually know where they went --
+                        for an unsigned/retired player this would otherwise
+                        be their old (now-defunct) contract with the team
+                        that lost them, reading as if it's still active. */}
+                    {m.other_team_abbr && formatContract(m) && <div className="text-xs text-ink-muted">{formatContract(m)}</div>}
                   </li>
                 ))}
               </ul>

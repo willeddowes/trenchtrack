@@ -613,9 +613,10 @@ def mopup_classify(rec: dict) -> str | None:
 # --- Reason bullets ----------------------------------------------------------
 # Built for direct display on the player page: 2-3 short bullets naming the
 # specific stat(s) that actually drove the archetype, not a restatement of
-# the archetype name. Concrete drill percentiles (cone/shuttle) are shown
-# paired rather than averaged when both are present, matching how the
-# player page's own Combine table already shows individual drills.
+# the archetype name. Agility (cone + shuttle) is blended into one number
+# when both are present, same idea as the "athleticism" composite (avg of
+# forty/vertical/broad_jump/cone/shuttle/bench) -- a single summarized
+# score per concept, not two raw drill numbers side by side.
 
 def ordinal(n: float) -> str:
     n = round(n)
@@ -645,7 +646,7 @@ def _length_or_athleticism_bullet(rec: dict) -> str | None:
 
 def _agility_bullet(rec: dict) -> str | None:
     if rec["cone_pctl"] is not None and rec["shuttle_pctl"] is not None:
-        return _pctl_bullet("agility", rec["cone_pctl"], rec["shuttle_pctl"])
+        return _pctl_bullet("agility", avg(rec["cone_pctl"], rec["shuttle_pctl"]))
     return _pctl_bullet("athleticism", rec["explosive_pctl"])
 
 
