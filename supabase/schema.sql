@@ -282,6 +282,21 @@ create table if not exists espn_team_block_win_rates (
 );
 
 -- ============================================================================
+-- team_schedule_strength: Strength of Schedule, one row per team per
+-- season (like espn_team_block_win_rates above, not weekly history like
+-- team_ol_stats -- see pipeline/steps/pull_schedule_strength.py). Fed into
+-- compute_grades.py as a 4th weighted component on Pass/Run Block.
+-- ============================================================================
+create table if not exists team_schedule_strength (
+  team_abbr text not null references teams (team_abbr),
+  season int not null,
+  pass_sos_score numeric,   -- 0-100, higher = tougher pass rushes faced
+  run_sos_score numeric,    -- 0-100, higher = tougher run defenses faced
+  updated_at timestamptz not null default now(),
+  primary key (team_abbr, season)
+);
+
+-- ============================================================================
 -- espn_player_block_win_rates: same idea, but per player. player_id is
 -- required (not free text) -- the entry form uses a searchable dropdown
 -- against the real `players` table, so this data never accumulates typos or
@@ -410,6 +425,7 @@ alter table ol_free_agency_moves enable row level security;
 alter table ol_draft_picks enable row level security;
 alter table injuries enable row level security;
 alter table team_ol_stats enable row level security;
+alter table team_schedule_strength enable row level security;
 alter table espn_team_block_win_rates enable row level security;
 alter table espn_player_block_win_rates enable row level security;
 alter table player_honors enable row level security;
@@ -438,6 +454,9 @@ create policy "public read access" on injuries for select using (true);
 
 drop policy if exists "public read access" on team_ol_stats;
 create policy "public read access" on team_ol_stats for select using (true);
+
+drop policy if exists "public read access" on team_schedule_strength;
+create policy "public read access" on team_schedule_strength for select using (true);
 
 drop policy if exists "public read access" on espn_team_block_win_rates;
 create policy "public read access" on espn_team_block_win_rates for select using (true);
@@ -479,6 +498,7 @@ grant select on
   ol_draft_picks,
   injuries,
   team_ol_stats,
+  team_schedule_strength,
   espn_team_block_win_rates,
   espn_player_block_win_rates,
   player_honors,
@@ -501,6 +521,7 @@ grant select, insert, update, delete on
   ol_draft_picks,
   injuries,
   team_ol_stats,
+  team_schedule_strength,
   espn_team_block_win_rates,
   espn_player_block_win_rates,
   player_honors,

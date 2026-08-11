@@ -21,7 +21,7 @@ supabase/   schema.sql + seed_teams.sql (hand-run in Supabase SQL Editor, no CLI
 - Dev server: `npm run dev --prefix web` (or the `trenchtrack-web` launch.json config)
 - Build check: `npm run build --prefix web`
 - Pipeline (from `pipeline/`): `venv/bin/python pull_and_compute.py` — pulls fresh data + recomputes all grades for the **current** season (`CURRENT_SEASON`)
-- Backfill a past season (from `pipeline/`): `venv/bin/python backfill_season.py 2024 2023 ...` — recomputes `team_ol_stats` + `ol_depth_chart` for any season(s); deliberately does NOT touch `players`/`injuries` (current-snapshot-only tables)
+- Backfill a past season (from `pipeline/`): `venv/bin/python backfill_season.py 2024 2023 ...` — recomputes `team_ol_stats` (including Strength of Schedule, `team_schedule_strength`) + `ol_depth_chart` for any season(s); deliberately does NOT touch `players`/`injuries` (current-snapshot-only tables)
 - Backfill snap history only, further back than grading can reach (from `pipeline/`): `venv/bin/python backfill_depth_chart_only.py 2020 2019 ... 2013` — writes `ol_depth_chart` only (skips `team_ol_stats`/`ol_draft_picks`), so it isn't capped by PFR advanced-stats' 2018 floor. Real floor is 2013, not 2018 — **and not 2012 either**: `nflreadpy.load_snap_counts(seasons=2012)` returns 0 rows despite its docstring claiming coverage "since 2012". Shows up on player pages immediately — `getPlayerPageData` queries `ol_depth_chart` by `player_id` with no season filter, so it's unaffected by `SUPPORTED_SEASONS` (which only gates team/stats season tabs, not player pages).
 - Pipeline tests: `venv/bin/pytest tests/` (from `pipeline/`)
 - Recompute grades only (no data re-pull): `/internal/espn-entry` page button, or `POST /api/recompute-grades`
@@ -50,15 +50,17 @@ CSS custom properties in `web/app/globals.css`, registered as Tailwind v4 theme 
 
 ## Grading (`pipeline/compute_grades.py` — read its docstring for the full writeup)
 Three grades per team per week: Pass Block, Run Block, Overall. Every raw stat is min-max normalized against that week's 32 teams (curved/relative, not absolute), then blended:
-- **Pass Block**: sack rate 20% / pressure rate allowed 40% / ESPN Pass Block Win Rate 40% (weighted on purpose — pressure rate is a more stable O-line signal than raw sacks, which are partly a QB/scheme stat)
-- **Run Block**: stuff rate / yards before contact per att / ESPN Run Block Win Rate — equal thirds (unweighted so far)
-- Missing ESPN data doesn't break the score — its weight drops out and the rest renormalize.
+- **Pass Block**: sack rate 17% / pressure rate allowed 34% / ESPN Pass Block Win Rate 34% / pass Strength of Schedule 15% (weighted on purpose — pressure rate is a more stable O-line signal than raw sacks, which are partly a QB/scheme stat)
+- **Run Block**: stuff rate 28.3% / yards before contact per att 28.3% / ESPN Run Block Win Rate 28.3% / run Strength of Schedule 15%
+- Missing ESPN or Strength of Schedule data doesn't break the score — its weight drops out and the rest renormalize.
+- **Strength of Schedule** (`pipeline/steps/pull_schedule_strength.py`, `team_schedule_strength` table): one `pass_sos_score`/`run_sos_score` per team per SEASON (not weekly, unlike everything else here — mirrors how `espn_team_block_win_rates` is also one row per team per season). Rates every team's own DEFENSE (sacks/pressures created, stuff rate created, yards-before-contact allowed) the same min-max way offenses are rated, then for each team averages the defense scores of everyone on their schedule, then normalizes those averages across the league again — a team's SOS is the average grade *of its opponents*, one level removed from a normal stat.
 - Each of the three blended scores then gets a **second min-max stretch** across that week's 32 teams before mapping to a letter — without this, averaging several already-normalized components compresses everyone toward the middle and nobody ever hits a true 0 or 100 (A+/F sit empty). The stretch guarantees the week's actual best team hits exactly 100 and the actual worst hits exactly 0.
 - Scores map to letters on **equal-width** 13-band scale (not the traditional 60%-is-passing school scale — that would wrongly dump most teams into "F" for a curved score; see docstring).
-- `grade_formula_version` column tracks formula changes (currently `"v3"`).
+- `grade_formula_version` column tracks formula changes (currently `"v4"`).
 
 ## Data model notes
 - `team_ol_stats` stores **weekly history** (one row per team/week, never overwritten) — enables a future "grade over the season" chart.
+- `team_schedule_strength` is **one row per team per season** (not weekly) — see the Grading section above. Computed by `compute_schedule_strength()` in `pipeline/steps/pull_schedule_strength.py`, called from both `pull_and_compute.py` (current season) and `backfill_season.py` (historical seasons) right before `compute_grades()` runs, since `compute_grades()` needs it as an input.
 - `ol_depth_chart` stores real **season history** (not a current-only snapshot): every player who logged offense snaps at each O-line position that season, ranked by total snaps (`depth_rank` 1 = most). This replaced the old `ol_starters` table (removed — its pipeline step broke when nflreadpy changed its depth-chart schema, and the replacement is strictly richer: shows real backups too, and works for every past season, not just "today"). `snaps` is nullable — null means a **projected** row (see the gotcha above), not a real season.
 - `ol_free_agency_moves` — for a season being previewed before it starts, the 300+-snap O-line players each team gained/lost that offseason. Stored from both sides (`direction` = `gained`/`lost`) so either team's page queries by its own `team_abbr` alone. Fully derived, not hand-entered — see the free-agency gotcha above.
 - `player_honors` stores hand-entered Pro Bowl / AP All-Pro (1st/2nd team) selections per season, joined to `ol_depth_chart` rows by `player_name` in `web/lib/getTeamPageData.ts`. AP All-Pro only (not PFF, Sporting News, etc).

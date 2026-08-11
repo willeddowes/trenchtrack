@@ -149,6 +149,12 @@ def upsert_team_ol_stats(client: Client, df: pd.DataFrame) -> None:
     client.table("team_ol_stats").upsert(_records(df), on_conflict="team_abbr,season,week").execute()
 
 
+def upsert_team_schedule_strength(client: Client, df: pd.DataFrame) -> None:
+    if df.empty:
+        return
+    client.table("team_schedule_strength").upsert(_records(df), on_conflict="team_abbr,season").execute()
+
+
 def fetch_espn_team_rates(client: Client, season: int) -> pd.DataFrame:
     """Reads whatever ESPN team-level win rates have been manually entered
     so far for this season, so compute_grades.py can blend them in. Any

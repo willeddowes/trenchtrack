@@ -11,6 +11,10 @@ def make_stats(rows: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def empty_schedule_strength() -> pd.DataFrame:
+    return pd.DataFrame({"team_abbr": [], "pass_sos_score": [], "run_sos_score": []})
+
+
 def test_best_team_beats_worst_team():
     # Three imaginary teams, one week. GOOD has the best numbers in every
     # category, BAD has the worst, MID sits in between.
@@ -32,7 +36,7 @@ def test_best_team_beats_worst_team():
         ]
     )
 
-    result = compute_grades(stats, espn).set_index("team_abbr")
+    result = compute_grades(stats, espn, empty_schedule_strength()).set_index("team_abbr")
 
     assert result.loc["GOOD", "overall_score"] > result.loc["MID", "overall_score"]
     assert result.loc["MID", "overall_score"] > result.loc["BAD", "overall_score"]
@@ -53,7 +57,7 @@ def test_missing_espn_data_does_not_crash_or_skew_other_teams():
     )
     espn = make_stats([{"team_abbr": "GOOD", "pass_block_win_rate": 70, "run_block_win_rate": 80}])
 
-    result = compute_grades(stats, espn).set_index("team_abbr")
+    result = compute_grades(stats, espn, empty_schedule_strength()).set_index("team_abbr")
 
     assert pd.notna(result.loc["BAD_NO_ESPN", "overall_score"])
     assert result.loc["GOOD", "overall_score"] > result.loc["BAD_NO_ESPN", "overall_score"]
@@ -73,7 +77,7 @@ def test_no_espn_data_at_all_still_grades_from_automated_stats():
     espn["pass_block_win_rate"] = []
     espn["run_block_win_rate"] = []
 
-    result = compute_grades(stats, espn).set_index("team_abbr")
+    result = compute_grades(stats, espn, empty_schedule_strength()).set_index("team_abbr")
 
     assert result.loc["GOOD", "overall_score"] > result.loc["BAD", "overall_score"]
 
@@ -122,12 +126,65 @@ def test_best_and_worst_team_always_hit_true_extremes():
     espn["pass_block_win_rate"] = []
     espn["run_block_win_rate"] = []
 
-    result = compute_grades(stats, espn)
+    result = compute_grades(stats, espn, empty_schedule_strength())
 
     assert result["overall_score"].max() == pytest.approx(100.0)
     assert result["overall_score"].min() == pytest.approx(0.0)
     assert (result["overall_grade"] == "A+").any()
     assert (result["overall_grade"] == "F").any()
+
+
+def test_missing_schedule_strength_does_not_crash_or_skew_other_teams():
+    # Mirrors test_missing_espn_data_does_not_crash_or_skew_other_teams --
+    # a team with no schedule_strength row yet (e.g. season just started)
+    # should still grade from its other components, not error out.
+    stats = make_stats(
+        [
+            {"team_abbr": "GOOD", "week": 1, "dropbacks": 100, "sacks_allowed": 2,
+             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5},
+            {"team_abbr": "BAD_NO_SOS", "week": 1, "dropbacks": 100, "sacks_allowed": 10,
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0},
+        ]
+    )
+    espn = make_stats([])
+    espn["team_abbr"] = []
+    espn["pass_block_win_rate"] = []
+    espn["run_block_win_rate"] = []
+    sos = make_stats([{"team_abbr": "GOOD", "pass_sos_score": 80, "run_sos_score": 80}])
+
+    result = compute_grades(stats, espn, sos).set_index("team_abbr")
+
+    assert pd.notna(result.loc["BAD_NO_SOS", "overall_score"])
+    assert result.loc["GOOD", "overall_score"] > result.loc["BAD_NO_SOS", "overall_score"]
+
+
+def test_tougher_schedule_scores_higher_all_else_equal():
+    # Two teams with IDENTICAL raw stats -- only their Strength of Schedule
+    # differs. The team that faced the tougher schedule should come out
+    # ahead on both Pass and Run Block.
+    stats = make_stats(
+        [
+            {"team_abbr": "TOUGH_SKED", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5},
+            {"team_abbr": "EASY_SKED", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5},
+        ]
+    )
+    espn = make_stats([])
+    espn["team_abbr"] = []
+    espn["pass_block_win_rate"] = []
+    espn["run_block_win_rate"] = []
+    sos = make_stats(
+        [
+            {"team_abbr": "TOUGH_SKED", "pass_sos_score": 100, "run_sos_score": 100},
+            {"team_abbr": "EASY_SKED", "pass_sos_score": 0, "run_sos_score": 0},
+        ]
+    )
+
+    result = compute_grades(stats, espn, sos).set_index("team_abbr")
+
+    assert result.loc["TOUGH_SKED", "pass_block_score"] > result.loc["EASY_SKED", "pass_block_score"]
+    assert result.loc["TOUGH_SKED", "run_block_score"] > result.loc["EASY_SKED", "run_block_score"]
 
 
 def test_score_to_letter_bands():

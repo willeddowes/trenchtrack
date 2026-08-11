@@ -10,23 +10,28 @@
  * See compute_grades.py's docstring for the full plain-language writeup of
  * how the formula works. Short version: every raw stat is min-max scaled
  * to 0-100 across whichever teams are passed in (best=100, worst=0), then
- * blended into Pass Block (weighted 20/40/40: sack rate / pressure rate /
- * ESPN PBWR) / Run Block (equal-weighted) / Overall scores -- each of
- * which then gets a SECOND min-max stretch across all teams (otherwise
- * averaging multiple components means almost nobody ever hits a true 0
- * or 100, so A+/F sit empty) -- before being mapped to letters on an
- * equal-width 13-band scale.
+ * blended into Pass Block (weighted 17/34/34/15: sack rate / pressure
+ * rate / ESPN PBWR / pass Strength of Schedule) / Run Block (28.3/28.3/
+ * 28.3/15: stuff rate / YBC per att / ESPN RBWR / run Strength of
+ * Schedule) / Overall scores -- each of which then gets a SECOND min-max
+ * stretch across all teams (otherwise averaging multiple components means
+ * almost nobody ever hits a true 0 or 100, so A+/F sit empty) -- before
+ * being mapped to letters on an equal-width 13-band scale.
  */
 
-export const GRADE_FORMULA_VERSION = "v3";
+export const GRADE_FORMULA_VERSION = "v4";
 
-// Pass Block component weights -- pressure rate and ESPN's win rate count
-// double a raw sack (sacks are partly a QB-behavior/scheme stat, not
+// Pass/Run Block component weights -- pressure rate and ESPN's win rate
+// count double a raw sack (sacks are partly a QB-behavior/scheme stat, not
 // purely an O-line one). These are relative proportions, not required to
 // sum to 1 -- see weightedAverage.
-const SACK_RATE_WEIGHT = 0.2;
-const PRESSURE_RATE_WEIGHT = 0.4;
-const ESPN_PBWR_WEIGHT = 0.4;
+const SACK_RATE_WEIGHT = 0.17;
+const PRESSURE_RATE_WEIGHT = 0.34;
+const ESPN_PBWR_WEIGHT = 0.34;
+const PASS_SOS_WEIGHT = 0.15;
+
+const RUN_BLOCK_COMPONENT_WEIGHT = 0.283; // stuff rate / YBC per att / ESPN RBWR, each
+const RUN_SOS_WEIGHT = 0.15;
 
 const GRADE_BANDS: [number, string][] = [
   [92.3, "A+"], [84.6, "A"], [76.9, "A-"],
@@ -100,6 +105,12 @@ export type EspnTeamRate = {
   run_block_win_rate: number | null;
 };
 
+export type TeamScheduleStrength = {
+  team_abbr: string;
+  pass_sos_score: number | null;
+  run_sos_score: number | null;
+};
+
 export type GradedTeam = {
   team_abbr: string;
   pass_block_score: number | null;
@@ -112,10 +123,16 @@ export type GradedTeam = {
 };
 
 /** Takes every team's latest raw stats for a season (one row per team) plus
- * whatever ESPN rates have been entered, and returns the three grades per
- * team -- comparing each team against all the others passed in. */
-export function computeGrades(rawStats: TeamRawStats[], espnRates: EspnTeamRate[]): GradedTeam[] {
+ * whatever ESPN rates and Strength of Schedule have been computed, and
+ * returns the three grades per team -- comparing each team against all the
+ * others passed in. */
+export function computeGrades(
+  rawStats: TeamRawStats[],
+  espnRates: EspnTeamRate[],
+  scheduleStrength: TeamScheduleStrength[]
+): GradedTeam[] {
   const espnByTeam = new Map(espnRates.map((r) => [r.team_abbr, r]));
+  const sosByTeam = new Map(scheduleStrength.map((r) => [r.team_abbr, r]));
 
   const sackRates = rawStats.map((t) => (t.dropbacks > 0 ? t.sacks_allowed / t.dropbacks : null));
   const pressureRates = rawStats.map((t) => t.pressure_rate_allowed);
@@ -123,21 +140,25 @@ export function computeGrades(rawStats: TeamRawStats[], espnRates: EspnTeamRate[
   const ybcPerAtt = rawStats.map((t) => t.yards_before_contact_per_att);
   const pbwr = rawStats.map((t) => espnByTeam.get(t.team_abbr)?.pass_block_win_rate ?? null);
   const rbwr = rawStats.map((t) => espnByTeam.get(t.team_abbr)?.run_block_win_rate ?? null);
+  const passSos = rawStats.map((t) => sosByTeam.get(t.team_abbr)?.pass_sos_score ?? null);
+  const runSos = rawStats.map((t) => sosByTeam.get(t.team_abbr)?.run_sos_score ?? null);
 
   const normalizedPbwr = pbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(pbwr, true);
   const normalizedRbwr = rbwr.every((v) => v === null) ? rawStats.map(() => null) : normalize(rbwr, true);
+  const normalizedPassSos = passSos.every((v) => v === null) ? rawStats.map(() => null) : normalize(passSos, true);
+  const normalizedRunSos = runSos.every((v) => v === null) ? rawStats.map(() => null) : normalize(runSos, true);
 
   const rawPassScores = weightedAverage([
     [normalize(sackRates, false), SACK_RATE_WEIGHT],
     [normalize(pressureRates, false), PRESSURE_RATE_WEIGHT],
     [normalizedPbwr, ESPN_PBWR_WEIGHT],
+    [normalizedPassSos, PASS_SOS_WEIGHT],
   ]);
-  // Run Block stays equal-weighted for now -- passing 1 for every weight
-  // makes weightedAverage behave as a plain average.
   const rawRunScores = weightedAverage([
-    [normalize(stuffRates, false), 1],
-    [normalize(ybcPerAtt, true), 1],
-    [normalizedRbwr, 1],
+    [normalize(stuffRates, false), RUN_BLOCK_COMPONENT_WEIGHT],
+    [normalize(ybcPerAtt, true), RUN_BLOCK_COMPONENT_WEIGHT],
+    [normalizedRbwr, RUN_BLOCK_COMPONENT_WEIGHT],
+    [normalizedRunSos, RUN_SOS_WEIGHT],
   ]);
 
   // Stretch each blended score to span the full 0-100 range across all

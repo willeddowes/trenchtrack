@@ -14,9 +14,11 @@ What it does, in order:
      yards before contact), one row per team per week.
   4. Reads back whatever ESPN win-rate numbers you've entered so far via
      the /internal/espn-entry page.
-  5. Runs compute_grades.py to turn (3) + (4) into the three letter grades,
-     for every team, for every week of the season so far.
-  6. Writes all of that to team_ol_stats.
+  5. Computes each team's Strength of Schedule for the season (pass rush
+     and run defense faced, see pipeline/steps/pull_schedule_strength.py).
+  6. Runs compute_grades.py to turn (3) + (4) + (5) into the three letter
+     grades, for every team, for every week of the season so far.
+  7. Writes all of that to team_ol_stats (and (5) to team_schedule_strength).
 
 Safe to re-run any time (weekly during the season is the plan) -- every
 write is either an upsert or a clean delete-and-replace, so running this
@@ -32,6 +34,7 @@ from steps.pull_injury_history import pull_injury_history
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_ol_draft_picks import pull_ol_draft_picks
 from steps.pull_players import pull_players
+from steps.pull_schedule_strength import compute_schedule_strength
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
     fetch_espn_team_rates,
@@ -43,6 +46,7 @@ from write_to_supabase import (
     upsert_player_injury_reports,
     upsert_players,
     upsert_team_ol_stats,
+    upsert_team_schedule_strength,
 )
 
 
@@ -79,8 +83,14 @@ def main() -> None:
     print("Reading manually-entered ESPN win rates...")
     espn_rates = fetch_espn_team_rates(client, season)
 
+    print("Computing Strength of Schedule (pass rush and run defense faced)...")
+    schedule_strength = compute_schedule_strength(season)
+    schedule_strength_to_write = schedule_strength.copy()
+    schedule_strength_to_write["season"] = season
+    upsert_team_schedule_strength(client, schedule_strength_to_write)
+
     print("Computing grades...")
-    graded = compute_grades(raw_stats, espn_rates)
+    graded = compute_grades(raw_stats, espn_rates, schedule_strength)
     graded["season"] = season
 
     # compute_grades() merges in the ESPN columns to do its math, but those

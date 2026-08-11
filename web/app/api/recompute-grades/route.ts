@@ -32,7 +32,13 @@ export async function POST() {
     .eq("season", CURRENT_SEASON);
   if (espnError) return NextResponse.json({ error: espnError.message }, { status: 500 });
 
-  const graded = computeGrades(rawStats, espnRates ?? []);
+  const { data: scheduleStrength, error: sosError } = await supabase
+    .from("team_schedule_strength")
+    .select("team_abbr, pass_sos_score, run_sos_score")
+    .eq("season", CURRENT_SEASON);
+  if (sosError) return NextResponse.json({ error: sosError.message }, { status: 500 });
+
+  const graded = computeGrades(rawStats, espnRates ?? [], scheduleStrength ?? []);
 
   // Each team's grades get written back onto its own (team_abbr, season,
   // week) row -- an update, not an upsert, since the row already exists.

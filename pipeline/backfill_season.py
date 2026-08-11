@@ -20,6 +20,7 @@ import sys
 from compute_grades import compute_grades
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_ol_draft_picks import pull_ol_draft_picks
+from steps.pull_schedule_strength import compute_schedule_strength
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
 from write_to_supabase import (
     fetch_espn_team_rates,
@@ -27,6 +28,7 @@ from write_to_supabase import (
     replace_ol_depth_chart,
     replace_ol_draft_picks,
     upsert_team_ol_stats,
+    upsert_team_schedule_strength,
 )
 
 TEAM_OL_STATS_COLUMNS = [
@@ -46,8 +48,14 @@ def backfill(client, season: int) -> None:
     print(f"[{season}] reading ESPN win rates (empty until entered via /internal/espn-entry)...")
     espn_rates = fetch_espn_team_rates(client, season)
 
+    print(f"[{season}] computing Strength of Schedule...")
+    schedule_strength = compute_schedule_strength(season)
+    schedule_strength_to_write = schedule_strength.copy()
+    schedule_strength_to_write["season"] = season
+    upsert_team_schedule_strength(client, schedule_strength_to_write)
+
     print(f"[{season}] computing grades...")
-    graded = compute_grades(raw_stats, espn_rates)
+    graded = compute_grades(raw_stats, espn_rates, schedule_strength)
     graded["season"] = season
     to_write = graded[TEAM_OL_STATS_COLUMNS]
 
