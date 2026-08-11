@@ -63,6 +63,7 @@ export default async function TeamPage({
     draftPicks,
     injuries,
     espnTeamRates,
+    scheduleStrength,
   } = data;
   const isProjectedDepthChart = depthChart.some((d) => d.snaps === null);
   const isCurrentSeason = season === CURRENT_SEASON;
@@ -146,6 +147,11 @@ export default async function TeamPage({
                   rank={espnTeamRates?.pass_block_win_rate_rank ?? null}
                 />
               </dl>
+              <ScheduleStrengthRow
+                label="Strength of Schedule (Opp. Pass Rush)"
+                hardestRank={scheduleStrength?.pass_sos_hardest_rank ?? null}
+                easiestRank={scheduleStrength?.pass_sos_easiest_rank ?? null}
+              />
             </section>
 
             <section className="rounded-2xl border border-line bg-surface p-4">
@@ -171,6 +177,11 @@ export default async function TeamPage({
                   rank={espnTeamRates?.run_block_win_rate_rank ?? null}
                 />
               </dl>
+              <ScheduleStrengthRow
+                label="Strength of Schedule (Opp. Run D)"
+                hardestRank={scheduleStrength?.run_sos_hardest_rank ?? null}
+                easiestRank={scheduleStrength?.run_sos_easiest_rank ?? null}
+              />
             </section>
           </>
         )}
@@ -384,6 +395,35 @@ function MetricRow({
         {value}
         {rank !== null && <span className="ml-1 font-normal text-ink-muted">({ordinal(rank)})</span>}
       </dd>
+    </div>
+  );
+}
+
+/** Strength of Schedule row, shown below the other 3 (raw-stat) metrics in
+ * each card -- lightly shaded/bordered in turf green to set it apart as a
+ * schedule-context add-on rather than a fourth raw stat, and a size step
+ * down from MetricRow's text since it's a supporting detail. Describes the
+ * team's SOS rank from whichever end of the league it's actually close to
+ * (top 10 hardest or bottom 10 easiest); the unremarkable middle 12 teams
+ * just read "average" rather than a not-very-meaningful exact rank. */
+function ScheduleStrengthRow({
+  label,
+  hardestRank,
+  easiestRank,
+}: {
+  label: string;
+  hardestRank: number | null;
+  easiestRank: number | null;
+}) {
+  if (hardestRank === null || easiestRank === null) return null;
+
+  const descriptor =
+    hardestRank <= 10 ? `${ordinal(hardestRank)} hardest` : easiestRank <= 10 ? `${ordinal(easiestRank)} easiest` : "average";
+
+  return (
+    <div className="mt-2 flex items-baseline justify-between gap-4 rounded-lg border border-accent/25 bg-accent/5 px-3 py-1.5 text-sm">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="shrink-0 font-mono font-semibold text-ink-muted">({descriptor})</dd>
     </div>
   );
 }

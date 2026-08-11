@@ -97,6 +97,14 @@ export type TeamPageData = {
     run_block_win_rate: number | null;
     run_block_win_rate_rank: number | null;
   } | null;
+  scheduleStrength: {
+    pass_sos_score: number | null;
+    pass_sos_hardest_rank: number | null;
+    pass_sos_easiest_rank: number | null;
+    run_sos_score: number | null;
+    run_sos_hardest_rank: number | null;
+    run_sos_easiest_rank: number | null;
+  } | null;
 };
 
 /** Assembles everything one team page needs, in a handful of parallel
@@ -124,6 +132,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
     leagueEspnRates,
     leagueAverages,
     seasonHistory,
+    scheduleStrength,
   ] = await Promise.all([
       supabase
         .from("team_ol_stats")
@@ -175,6 +184,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
       getLeagueEspnRanks(supabase, season, team.team_abbr),
       getLeagueWeeklyAverages(supabase, season),
       getSeasonHistory(supabase, team.team_abbr),
+      getLeagueScheduleStrengthRanks(supabase, season, team.team_abbr),
     ]);
 
   const positionOrder = ["LT", "LG", "C", "RG", "RT"];
@@ -218,6 +228,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
     draftPicks: draftPicks ?? [],
     injuries: injuries ?? [],
     espnTeamRates: leagueEspnRates,
+    scheduleStrength,
   };
 }
 
@@ -400,5 +411,38 @@ async function getLeagueEspnRanks(
     pass_block_win_rate_rank: rankAgainst(target.pass_block_win_rate, all, (r) => r.pass_block_win_rate, true),
     run_block_win_rate: target.run_block_win_rate,
     run_block_win_rate_rank: rankAgainst(target.run_block_win_rate, all, (r) => r.run_block_win_rate, true),
+  };
+}
+
+type LeagueSosRow = { team_abbr: string; pass_sos_score: number | null; run_sos_score: number | null };
+
+/** Ranks a team's Strength of Schedule two ways at once -- "hardest"
+ * (rank 1 = toughest schedule faced) and "easiest" (rank 1 = softest) --
+ * since the UI wants to describe a team as EITHER "3rd hardest" or "5th
+ * easiest" depending on which end of the league it's actually close to,
+ * falling back to "average" for the unremarkable middle of the pack. Same
+ * one-row-per-team-per-season shape as espn_team_block_win_rates, so no
+ * "latest week" reduction needed the way getLeagueStatRanks needs. */
+async function getLeagueScheduleStrengthRanks(
+  supabase: ReturnType<typeof createAnonServerClient>,
+  season: number,
+  teamAbbr: string
+): Promise<TeamPageData["scheduleStrength"]> {
+  const { data: rows } = await supabase
+    .from("team_schedule_strength")
+    .select("team_abbr, pass_sos_score, run_sos_score")
+    .eq("season", season);
+  const all: LeagueSosRow[] = rows ?? [];
+
+  const target = all.find((r) => r.team_abbr === teamAbbr);
+  if (!target) return null;
+
+  return {
+    pass_sos_score: target.pass_sos_score,
+    pass_sos_hardest_rank: rankAgainst(target.pass_sos_score, all, (r) => r.pass_sos_score, true),
+    pass_sos_easiest_rank: rankAgainst(target.pass_sos_score, all, (r) => r.pass_sos_score, false),
+    run_sos_score: target.run_sos_score,
+    run_sos_hardest_rank: rankAgainst(target.run_sos_score, all, (r) => r.run_sos_score, true),
+    run_sos_easiest_rank: rankAgainst(target.run_sos_score, all, (r) => r.run_sos_score, false),
   };
 }
