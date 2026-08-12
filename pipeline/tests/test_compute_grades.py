@@ -21,11 +21,11 @@ def test_best_team_beats_worst_team():
     stats = make_stats(
         [
             {"team_abbr": "GOOD", "week": 5, "dropbacks": 100, "sacks_allowed": 2,
-             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5},
+             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5, "penalty_rate": 0.02},
             {"team_abbr": "MID", "week": 5, "dropbacks": 100, "sacks_allowed": 5,
-             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5},
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5, "penalty_rate": 0.04},
             {"team_abbr": "BAD", "week": 5, "dropbacks": 100, "sacks_allowed": 10,
-             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0},
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0, "penalty_rate": 0.07},
         ]
     )
     espn = make_stats(
@@ -50,9 +50,9 @@ def test_missing_espn_data_does_not_crash_or_skew_other_teams():
     stats = make_stats(
         [
             {"team_abbr": "GOOD", "week": 1, "dropbacks": 100, "sacks_allowed": 2,
-             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5},
+             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5, "penalty_rate": 0.02},
             {"team_abbr": "BAD_NO_ESPN", "week": 1, "dropbacks": 100, "sacks_allowed": 10,
-             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0},
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0, "penalty_rate": 0.07},
         ]
     )
     espn = make_stats([{"team_abbr": "GOOD", "pass_block_win_rate": 70, "run_block_win_rate": 80}])
@@ -67,9 +67,9 @@ def test_no_espn_data_at_all_still_grades_from_automated_stats():
     stats = make_stats(
         [
             {"team_abbr": "GOOD", "week": 1, "dropbacks": 100, "sacks_allowed": 2,
-             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5},
+             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5, "penalty_rate": 0.02},
             {"team_abbr": "BAD", "week": 1, "dropbacks": 100, "sacks_allowed": 10,
-             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0},
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0, "penalty_rate": 0.07},
         ]
     )
     espn = make_stats([])
@@ -112,13 +112,13 @@ def test_best_and_worst_team_always_hit_true_extremes():
     stats = make_stats(
         [
             {"team_abbr": "A", "week": 1, "dropbacks": 100, "sacks_allowed": 2,
-             "pressure_rate_allowed": 0.30, "stuff_rate": 0.10, "yards_before_contact_per_att": 3.0},
+             "pressure_rate_allowed": 0.30, "stuff_rate": 0.10, "yards_before_contact_per_att": 3.0, "penalty_rate": 0.03},
             {"team_abbr": "B", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
-             "pressure_rate_allowed": 0.15, "stuff_rate": 0.20, "yards_before_contact_per_att": 2.5},
+             "pressure_rate_allowed": 0.15, "stuff_rate": 0.20, "yards_before_contact_per_att": 2.5, "penalty_rate": 0.04},
             {"team_abbr": "C", "week": 1, "dropbacks": 100, "sacks_allowed": 7,
-             "pressure_rate_allowed": 0.25, "stuff_rate": 0.12, "yards_before_contact_per_att": 2.0},
+             "pressure_rate_allowed": 0.25, "stuff_rate": 0.12, "yards_before_contact_per_att": 2.0, "penalty_rate": 0.05},
             {"team_abbr": "D", "week": 1, "dropbacks": 100, "sacks_allowed": 9,
-             "pressure_rate_allowed": 0.35, "stuff_rate": 0.30, "yards_before_contact_per_att": 1.0},
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.30, "yards_before_contact_per_att": 1.0, "penalty_rate": 0.06},
         ]
     )
     espn = make_stats([])
@@ -141,9 +141,9 @@ def test_missing_schedule_strength_does_not_crash_or_skew_other_teams():
     stats = make_stats(
         [
             {"team_abbr": "GOOD", "week": 1, "dropbacks": 100, "sacks_allowed": 2,
-             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5},
+             "pressure_rate_allowed": 0.10, "stuff_rate": 0.08, "yards_before_contact_per_att": 3.5, "penalty_rate": 0.02},
             {"team_abbr": "BAD_NO_SOS", "week": 1, "dropbacks": 100, "sacks_allowed": 10,
-             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0},
+             "pressure_rate_allowed": 0.35, "stuff_rate": 0.25, "yards_before_contact_per_att": 1.0, "penalty_rate": 0.07},
         ]
     )
     espn = make_stats([])
@@ -165,9 +165,9 @@ def test_tougher_schedule_scores_higher_all_else_equal():
     stats = make_stats(
         [
             {"team_abbr": "TOUGH_SKED", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
-             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5},
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5, "penalty_rate": 0.04},
             {"team_abbr": "EASY_SKED", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
-             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5},
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5, "penalty_rate": 0.04},
         ]
     )
     espn = make_stats([])
@@ -185,6 +185,30 @@ def test_tougher_schedule_scores_higher_all_else_equal():
 
     assert result.loc["TOUGH_SKED", "pass_block_score"] > result.loc["EASY_SKED", "pass_block_score"]
     assert result.loc["TOUGH_SKED", "run_block_score"] > result.loc["EASY_SKED", "run_block_score"]
+
+
+def test_worse_penalty_rate_lowers_overall_but_not_pass_or_run_block():
+    # Two teams with IDENTICAL raw stats/ESPN/SOS -- only penalty_rate
+    # differs. Overall should favor the cleaner team, but Pass Block and
+    # Run Block scores (which never see penalty_rate) must be unaffected.
+    stats = make_stats(
+        [
+            {"team_abbr": "CLEAN", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5, "penalty_rate": 0.01},
+            {"team_abbr": "PENALIZED", "week": 1, "dropbacks": 100, "sacks_allowed": 5,
+             "pressure_rate_allowed": 0.20, "stuff_rate": 0.15, "yards_before_contact_per_att": 2.5, "penalty_rate": 0.10},
+        ]
+    )
+    espn = make_stats([])
+    espn["team_abbr"] = []
+    espn["pass_block_win_rate"] = []
+    espn["run_block_win_rate"] = []
+
+    result = compute_grades(stats, espn, empty_schedule_strength()).set_index("team_abbr")
+
+    assert result.loc["CLEAN", "overall_score"] > result.loc["PENALIZED", "overall_score"]
+    assert result.loc["CLEAN", "pass_block_score"] == pytest.approx(result.loc["PENALIZED", "pass_block_score"])
+    assert result.loc["CLEAN", "run_block_score"] == pytest.approx(result.loc["PENALIZED", "run_block_score"])
 
 
 def test_score_to_letter_bands():

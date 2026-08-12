@@ -13,7 +13,7 @@ export async function POST() {
 
   const { data: statsRows, error: statsError } = await supabase
     .from("team_ol_stats")
-    .select("team_abbr, week, sacks_allowed, dropbacks, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att")
+    .select("team_abbr, week, sacks_allowed, dropbacks, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att, penalty_rate")
     .eq("season", CURRENT_SEASON);
   if (statsError) return NextResponse.json({ error: statsError.message }, { status: 500 });
 

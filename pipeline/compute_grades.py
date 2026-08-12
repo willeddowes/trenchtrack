@@ -4,7 +4,7 @@ it's a pure function of the DataFrames you pass it, which is what makes it
 easy to unit-test (see tests/test_compute_grades.py) and safe to reason
 about without touching a real database.
 
---- How the grading works (v4) ---
+--- How the grading works (v5) ---
 
 Every raw stat gets converted into a 0-100 "component score" by comparing
 each team against every OTHER team that same week, using min-max scaling:
@@ -53,7 +53,18 @@ Same for Strength of Schedule if a team's schedule_strength row is missing
 (e.g. very early in a season before compute_schedule_strength.py has been
 run) -- see pipeline/steps/pull_schedule_strength.py for how it's computed.
 
-Overall score = average of Pass Block score and Run Block score.
+Overall score = weighted average of Pass Block score (46%), Run Block
+score (46%), and a penalty score (8%) -- NOT a plain average of Pass/Run
+like earlier versions. The penalty score is O-line penalty rate
+(Offensive Holding + False Start per offensive play, see
+pull_team_ol_stats.py) normalized the same min-max way as everything
+else, lower is better. Deliberately small and deliberately invisible as
+its own line on the team page -- it's meant to nudge Overall slightly for
+teams that are chronically undisciplined, not to be a 4th headline grade.
+Surfaced instead as a "Nth-worst penalty rate" note in the Overall grade
+badge's hover tooltip (see web/lib/getTeamPageData.ts /
+web/components/GradeBadge.tsx). Pass Block and Run Block scores are
+completely unaffected by penalty rate.
 
 All three scores map to letters using the same academic-style scale.
 Bump GRADE_FORMULA_VERSION any time the weights or bands below change, so
@@ -67,7 +78,7 @@ the weights, bands, or components here, mirror the change there too.
 
 import pandas as pd
 
-GRADE_FORMULA_VERSION = "v4"
+GRADE_FORMULA_VERSION = "v5"
 
 # Pass/Run Block component weights -- see the module docstring for the
 # reasoning. These are relative proportions, not required to sum to 1:
@@ -82,6 +93,12 @@ PASS_SOS_WEIGHT = 0.15
 
 RUN_BLOCK_COMPONENT_WEIGHT = 0.283  # stuff rate / YBC per att / ESPN RBWR, each
 RUN_SOS_WEIGHT = 0.15
+
+# Overall score weights -- see the module docstring. Small and deliberately
+# so; penalty rate is a nudge, not a co-equal grading dimension.
+OVERALL_PASS_WEIGHT = 0.46
+OVERALL_RUN_WEIGHT = 0.46
+OVERALL_PENALTY_WEIGHT = 0.08
 
 # 13 EQUAL-WIDTH bands spanning the full 0-100 range (100/13 ~= 7.7 points
 # each), not the traditional school scale where "passing" starts at 60 and
@@ -147,7 +164,8 @@ def compute_grades(
     """
     team_week_stats: one row per team per week, for a single season, with
         columns team_abbr, week, dropbacks, sacks_allowed,
-        pressure_rate_allowed, stuff_rate, yards_before_contact_per_att.
+        pressure_rate_allowed, stuff_rate, yards_before_contact_per_att,
+        penalty_rate.
     espn_team_rates: one row per team for that season (some teams may be
         missing if not entered yet), columns team_abbr,
         pass_block_win_rate, run_block_win_rate.
@@ -213,9 +231,17 @@ def compute_grades(
         # exists (otherwise almost nobody ever hits a true A+ or F).
         week_df["pass_block_score"] = _normalize(pass_block_score, higher_is_better=True)
         week_df["run_block_score"] = _normalize(run_block_score, higher_is_better=True)
-        week_df["overall_score"] = _normalize(
-            week_df[["pass_block_score", "run_block_score"]].mean(axis=1), higher_is_better=True
-        )
+
+        penalty_score = _normalize(week_df["penalty_rate"], higher_is_better=False)
+        if week_df["penalty_rate"].isna().all():
+            penalty_score = pd.Series(pd.NA, index=idx)
+
+        overall_raw = _weighted_average([
+            (week_df["pass_block_score"], OVERALL_PASS_WEIGHT),
+            (week_df["run_block_score"], OVERALL_RUN_WEIGHT),
+            (penalty_score, OVERALL_PENALTY_WEIGHT),
+        ])
+        week_df["overall_score"] = _normalize(overall_raw, higher_is_better=True)
         results.append(week_df)
 
     out = pd.concat(results).sort_index()

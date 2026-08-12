@@ -34,7 +34,7 @@ from write_to_supabase import (
 TEAM_OL_STATS_COLUMNS = [
     "team_abbr", "season", "week", "games_played", "dropbacks",
     "sacks_allowed", "pressures_allowed", "pressure_rate_allowed",
-    "stuff_rate", "yards_before_contact_per_att",
+    "stuff_rate", "yards_before_contact_per_att", "penalty_rate",
     "pass_block_score", "pass_block_grade",
     "run_block_score", "run_block_grade",
     "overall_score", "overall_grade", "grade_formula_version",

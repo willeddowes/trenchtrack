@@ -247,6 +247,7 @@ create table if not exists team_ol_stats (
   pressure_rate_allowed numeric,
   stuff_rate numeric,                        -- share of rush attempts stopped at/behind the line
   yards_before_contact_per_att numeric,       -- nullable: may not be available, see pipeline README
+  penalty_rate numeric,                      -- Offensive Holding + False Start per offensive play
 
   -- computed grades (0-100 scores + letter grades, see compute_grades.py)
   pass_block_score numeric,

@@ -13,13 +13,16 @@
  * blended into Pass Block (weighted 17/34/34/15: sack rate / pressure
  * rate / ESPN PBWR / pass Strength of Schedule) / Run Block (28.3/28.3/
  * 28.3/15: stuff rate / YBC per att / ESPN RBWR / run Strength of
- * Schedule) / Overall scores -- each of which then gets a SECOND min-max
- * stretch across all teams (otherwise averaging multiple components means
- * almost nobody ever hits a true 0 or 100, so A+/F sit empty) -- before
- * being mapped to letters on an equal-width 13-band scale.
+ * Schedule) scores -- each of which then gets a SECOND min-max stretch
+ * across all teams (otherwise averaging multiple components means almost
+ * nobody ever hits a true 0 or 100, so A+/F sit empty). Overall is then a
+ * weighted 46/46/8 blend of Pass Block / Run Block / penalty score (O-line
+ * penalty rate, lower is better) -- NOT a plain average of Pass/Run --
+ * getting its own final stretch, before every score maps to a letter on an
+ * equal-width 13-band scale.
  */
 
-export const GRADE_FORMULA_VERSION = "v4";
+export const GRADE_FORMULA_VERSION = "v5";
 
 // Pass/Run Block component weights -- pressure rate and ESPN's win rate
 // count double a raw sack (sacks are partly a QB-behavior/scheme stat, not
@@ -32,6 +35,12 @@ const PASS_SOS_WEIGHT = 0.15;
 
 const RUN_BLOCK_COMPONENT_WEIGHT = 0.283; // stuff rate / YBC per att / ESPN RBWR, each
 const RUN_SOS_WEIGHT = 0.15;
+
+// Overall score weights -- small and deliberately so; penalty rate is a
+// nudge, not a co-equal grading dimension (see the module docstring).
+const OVERALL_PASS_WEIGHT = 0.46;
+const OVERALL_RUN_WEIGHT = 0.46;
+const OVERALL_PENALTY_WEIGHT = 0.08;
 
 const GRADE_BANDS: [number, string][] = [
   [92.3, "A+"], [84.6, "A"], [76.9, "A-"],
@@ -97,6 +106,7 @@ export type TeamRawStats = {
   pressure_rate_allowed: number | null;
   stuff_rate: number | null;
   yards_before_contact_per_att: number | null;
+  penalty_rate: number | null;
 };
 
 export type EspnTeamRate = {
@@ -166,9 +176,15 @@ export function computeGrades(
   // almost nobody ever hits a true A+ or F).
   const passScores = normalize(rawPassScores, true);
   const runScores = normalize(rawRunScores, true);
-  const rawOverallScores = rawStats.map((_, i) =>
-    passScores[i] !== null && runScores[i] !== null ? (passScores[i]! + runScores[i]!) / 2 : null
-  );
+
+  const penaltyRates = rawStats.map((t) => t.penalty_rate);
+  const normalizedPenalty = penaltyRates.every((v) => v === null) ? rawStats.map(() => null) : normalize(penaltyRates, false);
+
+  const rawOverallScores = weightedAverage([
+    [passScores, OVERALL_PASS_WEIGHT],
+    [runScores, OVERALL_RUN_WEIGHT],
+    [normalizedPenalty, OVERALL_PENALTY_WEIGHT],
+  ]);
   const overallScores = normalize(rawOverallScores, true);
 
   return rawStats.map((team, i) => {

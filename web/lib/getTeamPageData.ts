@@ -66,6 +66,11 @@ export type TeamPageData = {
     stuff_rate_rank: number | null;
     yards_before_contact_per_att: number | null;
     yards_before_contact_per_att_rank: number | null;
+    penalty_rate: number | null;
+    /** Rank 1 = league's WORST (highest) penalty rate -- feeds the Overall
+     * grade badge's "Nth-worst penalty rate" tooltip note, not shown as its
+     * own metric row anywhere on the page. */
+    penalty_rate_worst_rank: number | null;
     pass_block_score: number | null;
     pass_block_score_rank: number | null;
     pass_block_grade: string | null;
@@ -137,7 +142,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
       supabase
         .from("team_ol_stats")
         .select(
-          "week, games_played, sacks_allowed, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att, pass_block_score, pass_block_grade, run_block_score, run_block_grade, overall_score, overall_grade"
+          "week, games_played, sacks_allowed, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att, penalty_rate, pass_block_score, pass_block_grade, run_block_score, run_block_grade, overall_score, overall_grade"
         )
         .eq("team_abbr", team.team_abbr)
         .eq("season", season)
@@ -206,6 +211,7 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
           pressure_rate_allowed_rank: leagueStats?.pressure_rate_allowed_rank ?? null,
           stuff_rate_rank: leagueStats?.stuff_rate_rank ?? null,
           yards_before_contact_per_att_rank: leagueStats?.yards_before_contact_per_att_rank ?? null,
+          penalty_rate_worst_rank: leagueStats?.penalty_rate_worst_rank ?? null,
           pass_block_score_rank: leagueStats?.pass_block_score_rank ?? null,
           run_block_score_rank: leagueStats?.run_block_score_rank ?? null,
           overall_score_rank: leagueStats?.overall_score_rank ?? null,
@@ -260,6 +266,7 @@ type LeagueStatsRow = {
   pressure_rate_allowed: number | null;
   stuff_rate: number | null;
   yards_before_contact_per_att: number | null;
+  penalty_rate: number | null;
   pass_block_score: number | null;
   run_block_score: number | null;
   overall_score: number | null;
@@ -268,7 +275,11 @@ type LeagueStatsRow = {
 /** Ranks a team's automated Pass Pro / Run Game ingredient stats, plus its
  * three blended grade scores, against every other team's latest week that
  * season. Sacks/pressure/stuff are "lower is better"; yards before contact
- * and the three grade scores are "higher is better". */
+ * and the three grade scores are "higher is better". penalty_rate_worst_rank
+ * is deliberately the odd one out -- rank 1 means the WORST (highest) rate
+ * in the league, since that's the framing the Overall badge's tooltip
+ * wants ("2nd-worst penalty rate"), not a "lower is better" rank like the
+ * others here. */
 async function getLeagueStatRanks(
   supabase: ReturnType<typeof createAnonServerClient>,
   season: number,
@@ -278,6 +289,7 @@ async function getLeagueStatRanks(
   pressure_rate_allowed_rank: number | null;
   stuff_rate_rank: number | null;
   yards_before_contact_per_att_rank: number | null;
+  penalty_rate_worst_rank: number | null;
   pass_block_score_rank: number | null;
   run_block_score_rank: number | null;
   overall_score_rank: number | null;
@@ -285,7 +297,7 @@ async function getLeagueStatRanks(
   const { data: rows } = await supabase
     .from("team_ol_stats")
     .select(
-      "team_abbr, week, sacks_allowed, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att, pass_block_score, run_block_score, overall_score"
+      "team_abbr, week, sacks_allowed, pressure_rate_allowed, stuff_rate, yards_before_contact_per_att, penalty_rate, pass_block_score, run_block_score, overall_score"
     )
     .eq("season", season);
   if (!rows || rows.length === 0) return null;
@@ -310,6 +322,7 @@ async function getLeagueStatRanks(
       (r) => r.yards_before_contact_per_att,
       true
     ),
+    penalty_rate_worst_rank: rankAgainst(target.penalty_rate, all, (r) => r.penalty_rate, true),
     pass_block_score_rank: rankAgainst(target.pass_block_score, all, (r) => r.pass_block_score, true),
     run_block_score_rank: rankAgainst(target.run_block_score, all, (r) => r.run_block_score, true),
     overall_score_rank: rankAgainst(target.overall_score, all, (r) => r.overall_score, true),

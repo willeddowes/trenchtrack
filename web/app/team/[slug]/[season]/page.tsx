@@ -77,6 +77,14 @@ export default async function TeamPage({
 
   const seasonGrades = Object.fromEntries(seasonHistory.map((s) => [s.season, s.overall_grade]));
 
+  // Penalty rate is a small (8%) factor in Overall grade only -- see
+  // compute_grades.py -- deliberately not shown as its own metric row
+  // anywhere on the page, just this one tooltip note on the Overall badge.
+  const penaltyDetail =
+    stats?.penalty_rate_worst_rank !== undefined && stats?.penalty_rate_worst_rank !== null
+      ? `${ordinal(stats.penalty_rate_worst_rank)}-worst penalty rate`
+      : null;
+
   return (
     <main className="mx-auto w-full min-w-0 max-w-[80rem] space-y-4 p-4 sm:p-8">
       <header className="flex flex-wrap items-center gap-4">
@@ -104,6 +112,7 @@ export default async function TeamPage({
             grade={stats?.overall_grade ?? null}
             score={stats?.overall_score ?? null}
             rank={stats?.overall_score_rank ?? null}
+            detail={penaltyDetail}
             className="w-full"
           />
           <div className="flex gap-2">

@@ -22,6 +22,7 @@ export function GradeBadge({
   grade,
   score,
   rank = null,
+  detail = null,
   size = "md",
   className = "",
 }: {
@@ -29,6 +30,11 @@ export function GradeBadge({
   grade: string | null;
   score: number | null;
   rank?: number | null;
+  /** Extra line shown in the hover tooltip below the score, e.g. "2nd-worst
+   * penalty rate" on the Overall badge. Only rendered when both `score` and
+   * `detail` are present -- it lives inside the same fade-in tooltip box,
+   * not a separate reveal. */
+  detail?: string | null;
   size?: "md" | "sm";
   className?: string;
 }) {
@@ -56,10 +62,11 @@ export function GradeBadge({
           positioned so it never affects the badge's own layout height. */}
       {score !== null && (
         <span
-          className={`pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono ${sizeClasses.score} font-bold tabular-nums opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100`}
+          className={`pointer-events-none absolute bottom-full left-1/2 mb-1 flex -translate-x-1/2 flex-col items-center whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono ${sizeClasses.score} font-bold tabular-nums opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100`}
           style={{ backgroundColor: "var(--ink)", color: "var(--surface)" }}
         >
-          {score.toFixed(0)}/100
+          <span>{score.toFixed(0)}/100</span>
+          {detail && <span className="font-normal opacity-80">{detail}</span>}
         </span>
       )}
     </div>
