@@ -67,8 +67,8 @@ export type TeamPageData = {
     yards_before_contact_per_att: number | null;
     yards_before_contact_per_att_rank: number | null;
     penalty_rate: number | null;
-    /** Rank 1 = league's WORST (highest) penalty rate -- feeds the Overall
-     * grade badge's "Nth-worst penalty rate" tooltip note, not shown as its
+    /** Rank 1 = league's HIGHEST penalty rate -- feeds the Overall grade
+     * badge's "Nth-highest penalty rate" tooltip note, not shown as its
      * own metric row anywhere on the page. */
     penalty_rate_worst_rank: number | null;
     pass_block_score: number | null;
@@ -276,9 +276,9 @@ type LeagueStatsRow = {
  * three blended grade scores, against every other team's latest week that
  * season. Sacks/pressure/stuff are "lower is better"; yards before contact
  * and the three grade scores are "higher is better". penalty_rate_worst_rank
- * is deliberately the odd one out -- rank 1 means the WORST (highest) rate
- * in the league, since that's the framing the Overall badge's tooltip
- * wants ("2nd-worst penalty rate"), not a "lower is better" rank like the
+ * is deliberately the odd one out -- rank 1 means the HIGHEST rate in the
+ * league, since that's the framing the Overall badge's tooltip wants
+ * ("2nd-highest penalty rate"), not a "lower is better" rank like the
  * others here. */
 async function getLeagueStatRanks(
   supabase: ReturnType<typeof createAnonServerClient>,

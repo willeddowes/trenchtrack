@@ -82,7 +82,7 @@ export default async function TeamPage({
   // anywhere on the page, just this one tooltip note on the Overall badge.
   const penaltyDetail =
     stats?.penalty_rate_worst_rank !== undefined && stats?.penalty_rate_worst_rank !== null
-      ? `${ordinal(stats.penalty_rate_worst_rank)}-worst penalty rate`
+      ? `${ordinal(stats.penalty_rate_worst_rank)}-highest penalty rate`
       : null;
 
   return (
