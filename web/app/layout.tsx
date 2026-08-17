@@ -4,6 +4,7 @@ import Link from "next/link";
 import "./globals.css";
 import { TeamSearch } from "@/components/TeamSearch";
 import { PlayerSearch } from "@/components/PlayerSearch";
+import { LogoMark } from "@/components/LogoMark";
 import { CURRENT_SEASON } from "@/lib/teamsStatic";
 import { getPlayerSearchIndex } from "@/lib/getPlayerSearchIndex";
 
@@ -39,8 +40,8 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-ink">
         <header className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4 sm:gap-5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-accent-ink">
-              TT
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent p-1.5 text-accent-ink">
+              <LogoMark className="h-full w-full" />
             </span>
             TrenchTrack
           </Link>
