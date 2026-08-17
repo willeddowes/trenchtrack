@@ -48,15 +48,25 @@ HISTORICAL_TEAM_CODES = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 
 
 def _depth_chart_by_week(season: int) -> pd.DataFrame:
-    """Returns columns [club_code, week, name_norm, depth_position, gsis_id],
-    one row per player per side-position per week, regardless of which of
-    the two load_depth_charts() schemas this season came back as."""
+    """Returns columns [club_code, week, name_norm, depth_position, gsis_id,
+    side_rank], one row per player per side-position per week, regardless
+    of which of the two load_depth_charts() schemas this season came back
+    as. side_rank is ESPN's own "how primary is this listing" ordinal for
+    that side that week (1 = the slot ESPN currently treats as this
+    player's main one) -- named the same across both schemas even though
+    they call it different things (depth_team / pos_rank), so a player
+    dual-listed at two sides in the same week (a real in-season move
+    caught mid-update, not noise) can be resolved by preferring whichever
+    side ESPN itself currently ranks first, rather than an arbitrary pick.
+    See _last_name_fallback below for the separate first-name-mismatch
+    problem this doesn't address."""
     dc = nfl.load_depth_charts(seasons=season).to_pandas()
 
     if "week" in dc.columns:
         dc = dc[(dc["game_type"] == "REG") & (dc["depth_position"].isin(SIDE_POSITIONS))].copy()
         dc["name_norm"] = dc["full_name"].apply(_normalize_name)
-        return dc[["club_code", "week", "name_norm", "depth_position", "gsis_id"]]
+        dc = dc.rename(columns={"depth_team": "side_rank"})
+        return dc[["club_code", "week", "name_norm", "depth_position", "gsis_id", "side_rank"]]
 
     # Old/unarchived schema: a daily scrape history with no week column.
     # Bucket each day's snapshot into the NFL week it falls in ourselves,
@@ -92,8 +102,54 @@ def _depth_chart_by_week(season: int) -> pd.DataFrame:
 
     max_dt_per_group = mapped.groupby(["team", "week"])["dt"].transform("max")
     latest = mapped[mapped["dt"].values == max_dt_per_group.values].copy()
-    latest = latest.rename(columns={"team": "club_code", "pos_abb": "depth_position"})
-    return latest[["club_code", "week", "name_norm", "depth_position", "gsis_id"]]
+    latest = latest.rename(columns={"team": "club_code", "pos_abb": "depth_position", "pos_rank": "side_rank"})
+    return latest[["club_code", "week", "name_norm", "depth_position", "gsis_id", "side_rank"]]
+
+
+def _last_name(name_norm: str | None) -> str | None:
+    return name_norm.rsplit(" ", 1)[-1] if name_norm else name_norm
+
+
+def _last_name_fallback(merged: pd.DataFrame, dc_by_week: pd.DataFrame) -> pd.DataFrame:
+    """Catches a first-name-variant mismatch the exact-name join (and its
+    season-mode fallback) can't -- e.g. PFR's snap counts tag a player
+    "Nathan Thomas" while ESPN's depth chart has him as "Nate Thomas",
+    so neither the per-week nor the whole-season exact-name match ever
+    fires and his real snaps get silently dropped below. Falls back to
+    matching on (team, last name) instead -- but only when EXACTLY ONE
+    player shares that (team, last name) on both the snap-count side and
+    the depth-chart side, so two different same-surname linemen (e.g. two
+    different "Bass"es) never get collapsed into one by mistake."""
+    still_missing = merged["depth_position"].isna()
+    if not still_missing.any():
+        return merged
+
+    dc = dc_by_week.copy()
+    dc["last_name"] = dc["name_norm"].apply(_last_name)
+    # Only keep (team, last name) groups that resolve to a single real
+    # person all season -- if two differently-first-named players share a
+    # surname on the same team, skip the fallback for both rather than
+    # risk matching the wrong one.
+    dc_unique = dc.groupby(["club_code", "last_name"]).filter(lambda g: g["name_norm"].nunique() == 1)
+    last_name_lookup = (
+        dc_unique.groupby(["club_code", "last_name"], as_index=False)
+        .agg(depth_position_lastname=("depth_position", lambda s: s.mode().iloc[0]), gsis_id_lastname=("gsis_id", "first"))
+    )
+
+    merged["last_name"] = merged["name_norm"].apply(_last_name)
+    snap_last_name_count = merged.loc[still_missing].groupby(["team", "last_name"])["name_norm"].transform("nunique")
+    eligible_idx = merged.loc[still_missing].index[snap_last_name_count.values == 1]
+
+    fallback = merged.loc[eligible_idx, ["team", "last_name"]].merge(
+        last_name_lookup, left_on=["team", "last_name"], right_on=["club_code", "last_name"], how="left"
+    )
+    merged.loc[eligible_idx, "depth_position"] = merged.loc[eligible_idx, "depth_position"].fillna(
+        pd.Series(fallback["depth_position_lastname"].values, index=eligible_idx)
+    )
+    merged.loc[eligible_idx, "gsis_id"] = merged.loc[eligible_idx, "gsis_id"].fillna(
+        pd.Series(fallback["gsis_id_lastname"].values, index=eligible_idx)
+    )
+    return merged.drop(columns=["last_name"])
 
 
 def pull_season_ol_depth_chart(season: int) -> pd.DataFrame:
@@ -101,11 +157,21 @@ def pull_season_ol_depth_chart(season: int) -> pd.DataFrame:
     snaps = snaps[(snaps["game_type"] == "REG") & (snaps["position"].isin(GENERIC_OL_POSITIONS))].copy()
     snaps["name_norm"] = snaps["player"].apply(_normalize_name)
 
-    # A backup occasionally shows up dual-listed at two slots in the same
-    # team/week (e.g. 2nd-string guard AND 3rd-string tackle) -- keep
-    # whichever row loads first. Minor, and only ever affects deep backups.
-    dc_by_week = _depth_chart_by_week(season).drop_duplicates(
-        subset=["club_code", "week", "name_norm"], keep="first"
+    # A player occasionally shows up dual-listed at two slots in the same
+    # team/week -- either a backup at two different backup spots (minor),
+    # or a real in-season position change caught mid-update, where ESPN
+    # briefly lists him at both his old and new side in the same week
+    # (see side_rank's docstring in _depth_chart_by_week -- this is
+    # exactly what happened with Dallas's Tyler Smith moving from LG to
+    # LT in late 2025). Sorting by side_rank first means whichever side
+    # ESPN currently treats as primary wins the tie, instead of an
+    # arbitrary pick -- this only decides which side that week's already-
+    # real snap count is credited to, it doesn't touch the final
+    # Starter/Backup ranking below, which is always by total snaps.
+    dc_by_week = (
+        _depth_chart_by_week(season)
+        .sort_values("side_rank", na_position="last")
+        .drop_duplicates(subset=["club_code", "week", "name_norm"], keep="first")
     )
 
     merged = snaps.merge(
@@ -132,9 +198,12 @@ def pull_season_ol_depth_chart(season: int) -> pd.DataFrame:
     merged["depth_position"] = merged["depth_position"].fillna(merged["depth_position_mode"])
     merged["gsis_id"] = merged["gsis_id"].fillna(merged["gsis_id_mode"])
 
-    # Still-unmatched rows (no depth-chart appearance all season) can't be
-    # confidently assigned a side -- drop them, same as other places in this
-    # pipeline that accept an imperfect proxy over blocking on missing data.
+    merged = _last_name_fallback(merged, dc_by_week)
+
+    # Still-unmatched rows (no depth-chart appearance all season, even
+    # under a same-surname fallback) can't be confidently assigned a side
+    # -- drop them, same as other places in this pipeline that accept an
+    # imperfect proxy over blocking on missing data.
     merged = merged.dropna(subset=["depth_position"])
 
     totals = merged.groupby(

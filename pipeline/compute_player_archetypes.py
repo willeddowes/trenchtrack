@@ -624,30 +624,27 @@ def ordinal(n: float) -> str:
     return f"{n}{suffix}"
 
 
-def _pctl_bullet(label: str, *pctls: float | None) -> str | None:
-    vals = [p for p in pctls if p is not None]
-    if not vals:
-        return None
-    joined = " & ".join(ordinal(v) for v in vals)
-    return f"{joined} %ile {label}"
+def _ordered_bullets(*pairs: tuple[str, float | None]) -> list[str]:
+    """Formats percentile bullets and orders them HIGHEST percentile first,
+    regardless of which measurable the calling branch happens to list
+    first -- e.g. a player who's 78th %ile athleticism but only 66th %ile
+    size should show athleticism first. Pairs with a missing (None)
+    percentile are dropped."""
+    present = [(label, v) for label, v in pairs if v is not None]
+    present.sort(key=lambda p: p[1], reverse=True)
+    return [f"{ordinal(v)} %ile {label}" for label, v in present]
 
 
-def _weight_or_size_bullet(rec: dict) -> str | None:
+def _weight_or_size_pair(rec: dict) -> tuple[str, float | None]:
     if rec["weight_pctl"] is not None:
-        return _pctl_bullet("weight", rec["weight_pctl"])
-    return _pctl_bullet("size", rec["size_pctl"])
+        return ("weight", rec["weight_pctl"])
+    return ("size", rec["size_pctl"])
 
 
-def _length_or_athleticism_bullet(rec: dict) -> str | None:
-    if rec["length_pctl"] is not None:
-        return _pctl_bullet("length", rec["length_pctl"])
-    return _pctl_bullet("athleticism", rec["explosive_pctl"])
-
-
-def _agility_bullet(rec: dict) -> str | None:
+def _agility_pair(rec: dict) -> tuple[str, float | None]:
     if rec["cone_pctl"] is not None and rec["shuttle_pctl"] is not None:
-        return _pctl_bullet("agility", avg(rec["cone_pctl"], rec["shuttle_pctl"]))
-    return _pctl_bullet("athleticism", rec["explosive_pctl"])
+        return ("agility", avg(rec["cone_pctl"], rec["shuttle_pctl"]))
+    return ("athleticism", rec["explosive_pctl"])
 
 
 def _versatility_bullet(rec: dict) -> str:
@@ -658,51 +655,51 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
     if winner is None:
         return []
     if winner == "Blue Chip Freak":
-        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner == "Blue Chip Mauler":
         # Draft position is what routes a player here in the first place
         # (see classify()), but it's not a measurable -- the box should lead
         # with actual size/athleticism, same as every other archetype.
-        bullets = [_weight_or_size_bullet(rec), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(_weight_or_size_pair(rec), ("athleticism", rec["explosive_pctl"]))
     elif winner in ("Elite Freak Athlete", "Freak Athlete"):
-        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner.startswith("Elite Power "):
         # Same measurables as the non-honors Power/Road-Grader archetypes --
         # the honor itself is already shown as a badge below, so the box
         # here should only ever explain the *measurable* fit.
-        bullets = [_weight_or_size_bullet(rec), _agility_bullet(rec)]
+        bullets = _ordered_bullets(_weight_or_size_pair(rec), _agility_pair(rec))
     elif winner.startswith("Elite Rangy "):
         if rec["primary_position"] == "Tackle":
-            bullets = [_pctl_bullet("length", rec["length_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+            bullets = _ordered_bullets(("length", rec["length_pctl"]), ("athleticism", rec["explosive_pctl"]))
         else:
-            bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+            bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner in ("Power Tackle", "Road Grader Center", "Road Grader Guard"):
-        bullets = [_weight_or_size_bullet(rec), _agility_bullet(rec)]
+        bullets = _ordered_bullets(_weight_or_size_pair(rec), _agility_pair(rec))
     elif winner == "Long Rangy Tackle":
-        bullets = [_pctl_bullet("length", rec["length_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("length", rec["length_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner == "Rangy Tackle":
         # Unlike Long Rangy Tackle, length isn't the story here (that's the
         # whole reason for the split) -- size + athleticism, same as Rangy
         # Center/Guard.
-        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner in ("Rangy Center", "Rangy Guard"):
-        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner == "Rangy Versatile OL":
-        bullets = [_versatility_bullet(rec), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = [_versatility_bullet(rec)] + _ordered_bullets(("athleticism", rec["explosive_pctl"]))
     elif winner == "Rangy Swing Tackle":
-        bullets = ["LT & RT snaps", _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = ["LT & RT snaps"] + _ordered_bullets(("athleticism", rec["explosive_pctl"]))
     elif winner == "Power Versatile OL":
-        bullets = [
-            _versatility_bullet(rec),
-            _weight_or_size_bullet(rec),
-            _pctl_bullet("athleticism", rec["explosive_pctl"]),
-        ]
+        bullets = [_versatility_bullet(rec)] + _ordered_bullets(
+            _weight_or_size_pair(rec), ("athleticism", rec["explosive_pctl"])
+        )
     elif winner == "Power Swing Tackle":
-        bullets = ["LT & RT snaps", _weight_or_size_bullet(rec), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = ["LT & RT snaps"] + _ordered_bullets(
+            _weight_or_size_pair(rec), ("athleticism", rec["explosive_pctl"])
+        )
     elif winner in ("Limited Athlete Technician", "Undersized Technician"):
-        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner == "Undersized & Explosive":
-        bullets = [_pctl_bullet("size", rec["size_pctl"]), _pctl_bullet("athleticism", rec["explosive_pctl"])]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     elif winner == "All-Around Reliable Starter":
         # This archetype is the no-combine-data-required fallback -- a
         # player can land here missing EITHER size or explosive (not
@@ -712,10 +709,7 @@ def build_reasons(rec: dict, winner: str | None) -> list[str]:
         # depending on what data actually exists -- the archetype name
         # itself already conveys "reliable starter", so no text bullet
         # substitutes for it when neither measurable is available.
-        bullets = [
-            _pctl_bullet("size", rec["size_pctl"]),
-            _pctl_bullet("athleticism", rec["explosive_pctl"]),
-        ]
+        bullets = _ordered_bullets(("size", rec["size_pctl"]), ("athleticism", rec["explosive_pctl"]))
     else:
         bullets = []
     return [b for b in bullets if b][:3]

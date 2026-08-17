@@ -281,10 +281,10 @@ export default async function PlayerPage({
         </div>
       )}
 
-      <div className={`grid grid-cols-1 gap-4 ${combineRows.length > 0 ? "lg:grid-cols-[200px_1fr]" : ""}`}>
-        {combineRows.length > 0 && (
-          <section className="rounded-2xl border border-line bg-surface p-4">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Combine / Pro Day</h2>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_1fr]">
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Combine / Pro Day</h2>
+          {combineRows.length > 0 ? (
             <dl className="mt-1 divide-y divide-line text-sm">
               {combineRows.map(({ label, field, percentileField, format }) => {
                 const value = combine![field] as number;
@@ -303,8 +303,10 @@ export default async function PlayerPage({
                 );
               })}
             </dl>
-          </section>
-        )}
+          ) : (
+            <p className="mt-2 text-sm text-ink-muted">(None)</p>
+          )}
+        </section>
 
         <section className="rounded-2xl border border-line bg-surface p-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Career &middot; by snaps played</h2>
