@@ -223,6 +223,35 @@ create table if not exists player_injury_rates (
 );
 
 -- ============================================================================
+-- player_contracts: every contract a tracked OL has ever signed (one row per
+-- player per contract, not per season), from nflreadpy's load_contracts()
+-- (OverTheCap data). No FK to `players`, same reasoning as
+-- player_injury_reports/ol_depth_chart -- spans retired players too.
+-- `is_current` marks whichever row is that player's active deal today --
+-- set from the TOP-LEVEL is_active-flagged snapshot's own numbers, not
+-- reconstructed from within contract_history, since the two occasionally
+-- disagree slightly for restructured/tendered deals (see
+-- pull_player_contracts.py). A career-table season's APY is found by
+-- picking whichever row's [year_signed, year_signed+years) covers it.
+-- ============================================================================
+create table if not exists player_contracts (
+  id bigint generated always as identity primary key,
+  player_id text not null,
+  player_name text not null,
+  position text,                -- LT/RT/LG/RG/C
+  year_signed int not null,
+  years numeric,
+  total_value numeric,          -- $ millions
+  apy numeric,                  -- $ millions
+  guaranteed numeric,           -- $ millions
+  is_current boolean not null default false,
+  unique (player_id, year_signed)
+);
+
+create index if not exists player_contracts_player_idx
+  on player_contracts (player_id);
+
+-- ============================================================================
 -- team_ol_stats: the core computed table -- one row per team, per season,
 -- per week. This is stored as WEEKLY HISTORY (never overwritten) rather than
 -- a single "current" snapshot, specifically so that a future "grade over the
@@ -434,6 +463,7 @@ alter table player_combine enable row level security;
 alter table player_archetypes enable row level security;
 alter table player_injury_reports enable row level security;
 alter table player_injury_rates enable row level security;
+alter table player_contracts enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -480,6 +510,9 @@ create policy "public read access" on player_injury_reports for select using (tr
 drop policy if exists "public read access" on player_injury_rates;
 create policy "public read access" on player_injury_rates for select using (true);
 
+drop policy if exists "public read access" on player_contracts;
+create policy "public read access" on player_contracts for select using (true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -506,7 +539,8 @@ grant select on
   player_combine,
   player_archetypes,
   player_injury_reports,
-  player_injury_rates
+  player_injury_rates,
+  player_contracts
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -529,5 +563,6 @@ grant select, insert, update, delete on
   player_combine,
   player_archetypes,
   player_injury_reports,
-  player_injury_rates
+  player_injury_rates,
+  player_contracts
 to service_role;

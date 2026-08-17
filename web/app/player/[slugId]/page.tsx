@@ -62,6 +62,12 @@ function formatHeight(inches: number): string {
   return `${Math.floor(inches / 12)}'${inches % 12}"`;
 }
 
+/** $ millions -> "$26.0M", same one-decimal convention as the team page's
+ * free agency contract lines (formatContract). */
+function formatMoney(millions: number): string {
+  return `$${millions.toFixed(1)}M`;
+}
+
 /** Same 5-step "turf to rust" ramp used for grade letters elsewhere on the
  * site (GradeBadge.GRADE_COLOR_VARS), reused here so an elite percentile
  * reads as unmistakably green and a poor one as red at a glance. */
@@ -115,6 +121,7 @@ export default async function PlayerPage({
     primaryPosition,
     currentTeamLogoUrl,
     injuryHistory,
+    currentContract,
   } = data;
   const combineRows = combine
     ? COMBINE_ROWS.filter((r) => combine[r.field] !== null && combine[r.field] !== undefined).sort((a, b) => {
@@ -235,6 +242,35 @@ export default async function PlayerPage({
         </section>
       )}
 
+      {currentContract && (
+        <section className="rounded-2xl border border-line bg-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Current Contract</h2>
+              <div className="mt-0.5 flex items-baseline gap-1">
+                <span className="text-2xl font-extrabold" style={{ color: "var(--accent)" }}>
+                  {formatMoney(currentContract.apy)}
+                </span>
+                <span className="text-sm font-bold text-ink-muted">/yr</span>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {currentContract.yearsSigned && `${currentContract.yearsSigned}-yr`}
+                {currentContract.totalValue && `, ${formatMoney(currentContract.totalValue)} total`}
+                {` · signed ${currentContract.yearSigned}`}
+              </p>
+            </div>
+            {currentContract.positionRank && position && (
+              <span
+                className="shrink-0 rounded-2xl px-3.5 py-1.5 text-xs font-extrabold"
+                style={{ backgroundColor: "color-mix(in srgb, var(--accent) 16%, var(--surface))", color: "var(--accent)" }}
+              >
+                {ordinal(currentContract.positionRank)}-highest {position}
+              </span>
+            )}
+          </div>
+        </section>
+      )}
+
       <div className={`grid grid-cols-1 gap-4 ${combineRows.length > 0 ? "lg:grid-cols-[200px_1fr]" : ""}`}>
         {combineRows.length > 0 && (
           <section className="rounded-2xl border border-line bg-surface p-4">
@@ -269,7 +305,8 @@ export default async function PlayerPage({
                 <th className="pb-2 pr-2 font-bold">Team</th>
                 <th className="pb-2 pr-2 font-bold">Pos</th>
                 <th className="pb-2 pr-2 font-bold">Rank</th>
-                <th className="pb-2 font-bold">Snaps</th>
+                <th className="pb-2 pr-2 font-bold">Snaps</th>
+                <th className="pb-2 text-right font-bold">APY</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -284,13 +321,16 @@ export default async function PlayerPage({
                   <td className="py-1.5 pr-2 align-top">
                     {row.depth_rank === 1 ? "Starter" : `Backup #${row.depth_rank - 1}`}
                   </td>
-                  <td className="py-1.5 align-top">
+                  <td className="py-1.5 pr-2 align-top">
                     <div className="flex flex-wrap items-center gap-1">
                       {row.snaps}
                       {row.honors.map((h) => (
                         <HonorBadge key={h} honor={h} />
                       ))}
                     </div>
+                  </td>
+                  <td className="py-1.5 align-top text-right text-ink-muted">
+                    {row.contract_apy !== null ? formatMoney(row.contract_apy) : "—"}
                   </td>
                 </tr>
               ))}

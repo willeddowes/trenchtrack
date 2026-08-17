@@ -93,6 +93,17 @@ def upsert_player_injury_reports(client: Client, rows: list[dict]) -> None:
         ).execute()
 
 
+def upsert_player_contracts(client: Client, df: pd.DataFrame) -> None:
+    if df.empty:
+        return
+    records = _records(df)
+    chunk_size = 500
+    for i in range(0, len(records), chunk_size):
+        client.table("player_contracts").upsert(
+            records[i : i + chunk_size], on_conflict="player_id,year_signed"
+        ).execute()
+
+
 def replace_ol_depth_chart(client: Client, season: int, rows: list[dict]) -> None:
     """Like replace_injuries -- each run replaces the whole season's ranked
     list, since the shape of the ranking (how many backups logged snaps at

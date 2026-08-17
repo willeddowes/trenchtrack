@@ -19,6 +19,9 @@ What it does, in order:
   6. Runs compute_grades.py to turn (3) + (4) + (5) into the three letter
      grades, for every team, for every week of the season so far.
   7. Writes all of that to team_ol_stats (and (5) to team_schedule_strength).
+  8. Pulls every tracked OL's contract history (career-spanning, not
+     season-scoped -- see pipeline/steps/pull_player_contracts.py) and
+     upserts it to player_contracts.
 
 Safe to re-run any time (weekly during the season is the plan) -- every
 write is either an upsert or a clean delete-and-replace, so running this
@@ -33,6 +36,7 @@ from steps.pull_injuries import pull_injuries
 from steps.pull_injury_history import pull_injury_history
 from steps.pull_ol_depth_chart import pull_season_ol_depth_chart
 from steps.pull_ol_draft_picks import pull_ol_draft_picks
+from steps.pull_player_contracts import pull_player_contracts
 from steps.pull_players import pull_players
 from steps.pull_schedule_strength import compute_schedule_strength
 from steps.pull_team_ol_stats import pull_team_ol_stats_raw
@@ -43,6 +47,7 @@ from write_to_supabase import (
     replace_ol_depth_chart,
     replace_ol_draft_picks,
     upsert_player_combine,
+    upsert_player_contracts,
     upsert_player_injury_reports,
     upsert_players,
     upsert_team_ol_stats,
@@ -108,6 +113,9 @@ def main() -> None:
 
     print(f"Writing {len(to_write)} team/week rows to team_ol_stats...")
     upsert_team_ol_stats(client, to_write)
+
+    print("Pulling player contract history (OverTheCap via nflreadpy)...")
+    upsert_player_contracts(client, pull_player_contracts())
 
     print("Done.")
 

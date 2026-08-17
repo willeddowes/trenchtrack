@@ -10,6 +10,22 @@ export type PlayerCareerRow = {
   depth_rank: number;
   snaps: number;
   honors: string[];
+  /** APY ($ millions) of whichever contract was covering this season, from
+   * player_contracts -- null if no contract on file covers it (a season
+   * before nflreadpy/OTC's coverage starts, or a gap in the source data). */
+  contract_apy: number | null;
+};
+
+export type CurrentContract = {
+  yearsSigned: number | null;
+  totalValue: number | null;
+  apy: number;
+  yearSigned: number;
+  /** Rank by APY among every other CURRENT contract at the same position
+   * GROUP league-wide (OT/OG/C, not the raw LT/RT/LG/RG/C split) -- 1 =
+   * highest-paid at that group. Null if no other current contracts exist
+   * to rank against (shouldn't happen in practice). */
+  positionRank: number | null;
 };
 
 export type PlayerInjuryEntry = {
@@ -84,6 +100,7 @@ export type PlayerPageData = {
    * schema.sql), so each entry here is a real missed-game count, not just
    * a report appearance. Sorted most recent season first. */
   injuryHistory: PlayerInjuryEntry[];
+  currentContract: CurrentContract | null;
 };
 
 const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
@@ -94,6 +111,12 @@ const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
   C: "C",
 };
 
+const POSITION_GROUP_MEMBERS: Record<"OT" | "OG" | "C", string[]> = {
+  OT: ["LT", "RT"],
+  OG: ["LG", "RG"],
+  C: ["C"],
+};
+
 /** Assembles everything one player page needs. Unlike getTeamPageData, this
  * isn't scoped to a single season -- ol_depth_chart rows for this player_id
  * span every season/team they logged snaps for, which is the point (a
@@ -102,7 +125,7 @@ const POSITION_GROUP: Record<string, "OT" | "OG" | "C"> = {
 export async function getPlayerPageData(playerId: string): Promise<PlayerPageData | null> {
   const supabase = createAnonServerClient();
 
-  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }, { data: injuryRows }] = await Promise.all([
+  const [{ data: player }, { data: careerRows }, { data: honors }, { data: combine }, { data: archetype }, { data: injuryRows }, { data: contractRows }] = await Promise.all([
     // Nullable on purpose: retired/departed players have career rows below
     // but no row here, since `players` only ever holds the current roster.
     supabase
@@ -138,6 +161,14 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
       .eq("player_id", playerId)
       .order("season", { ascending: false })
       .order("week", { ascending: true }),
+    // Nullable: only players nflreadpy/OTC has contract data for. Every
+    // contract this player has ever signed, not just the current one --
+    // see player_contracts' comment in schema.sql.
+    supabase
+      .from("player_contracts")
+      .select("position, year_signed, years, total_value, apy, is_current")
+      .eq("player_id", playerId)
+      .order("year_signed", { ascending: true }),
   ]);
 
   if (!careerRows || careerRows.length === 0) return null;
@@ -186,6 +217,45 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
   }
   const injuryHistory = [...injuryGroups.values()].sort((a, b) => b.season - a.season);
 
+  // Current contract + its league-wide positional rank (OT/OG/C group, not
+  // the raw LT/RT/LG/RG/C split -- matches primaryPosition's grouping).
+  const currentContractRow = (contractRows ?? []).find((r) => r.is_current);
+  let currentContract: CurrentContract | null = null;
+  if (currentContractRow) {
+    const group = POSITION_GROUP[currentContractRow.position ?? ""];
+    let positionRank: number | null = null;
+    if (group) {
+      const { data: peers } = await supabase
+        .from("player_contracts")
+        .select("apy")
+        .eq("is_current", true)
+        .in("position", POSITION_GROUP_MEMBERS[group]);
+      const betterCount = (peers ?? []).filter((p) => p.apy > currentContractRow.apy).length;
+      positionRank = betterCount + 1;
+    }
+    currentContract = {
+      yearsSigned: currentContractRow.years,
+      totalValue: currentContractRow.total_value,
+      apy: currentContractRow.apy,
+      yearSigned: currentContractRow.year_signed,
+      positionRank,
+    };
+  }
+
+  // For a career row's season, find whichever contract's [year_signed,
+  // year_signed+years) window covers it -- the latest-signed one that
+  // qualifies, in case of an overlap.
+  function apyForSeason(season: number): number | null {
+    let best: { year_signed: number; apy: number } | null = null;
+    for (const c of contractRows ?? []) {
+      const span = c.years ?? 1;
+      if (season >= c.year_signed && season < c.year_signed + span) {
+        if (!best || c.year_signed > best.year_signed) best = { year_signed: c.year_signed, apy: c.apy };
+      }
+    }
+    return best?.apy ?? null;
+  }
+
   return {
     player,
     displayName,
@@ -194,6 +264,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     archetype: archetype ?? null,
     primaryPosition,
     injuryHistory,
+    currentContract,
     currentTeamLogoUrl: (() => {
       const team = Array.isArray(careerRows[0].teams) ? careerRows[0].teams[0] : careerRows[0].teams;
       return team?.logo_url ?? null;
@@ -212,6 +283,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
         depth_rank: row.depth_rank,
         snaps: row.snaps,
         honors: honorsByKey.get(`${row.season}:${team?.team_abbr}`) ?? [],
+        contract_apy: apyForSeason(row.season),
       };
     }),
   };
