@@ -67,10 +67,13 @@ export type TeamPageData = {
     yards_before_contact_per_att: number | null;
     yards_before_contact_per_att_rank: number | null;
     penalty_rate: number | null;
-    /** Rank 1 = league's HIGHEST penalty rate -- feeds the Overall grade
-     * badge's "Nth-highest penalty rate" tooltip note, not shown as its
-     * own metric row anywhere on the page. */
-    penalty_rate_worst_rank: number | null;
+    /** Both ranked from opposite ends -- feeds the Overall grade badge's
+     * "Nth-highest"/"Nth-lowest" penalty rate tooltip note (whichever half
+     * of the league the team is actually in), not shown as its own metric
+     * row anywhere on the page. Rank 1 = league's HIGHEST rate for one,
+     * rank 1 = league's LOWEST rate for the other. */
+    penalty_rate_highest_rank: number | null;
+    penalty_rate_lowest_rank: number | null;
     pass_block_score: number | null;
     pass_block_score_rank: number | null;
     pass_block_grade: string | null;
@@ -211,7 +214,8 @@ export async function getTeamPageData(slug: string, season: number): Promise<Tea
           pressure_rate_allowed_rank: leagueStats?.pressure_rate_allowed_rank ?? null,
           stuff_rate_rank: leagueStats?.stuff_rate_rank ?? null,
           yards_before_contact_per_att_rank: leagueStats?.yards_before_contact_per_att_rank ?? null,
-          penalty_rate_worst_rank: leagueStats?.penalty_rate_worst_rank ?? null,
+          penalty_rate_highest_rank: leagueStats?.penalty_rate_highest_rank ?? null,
+          penalty_rate_lowest_rank: leagueStats?.penalty_rate_lowest_rank ?? null,
           pass_block_score_rank: leagueStats?.pass_block_score_rank ?? null,
           run_block_score_rank: leagueStats?.run_block_score_rank ?? null,
           overall_score_rank: leagueStats?.overall_score_rank ?? null,
@@ -275,10 +279,11 @@ type LeagueStatsRow = {
 /** Ranks a team's automated Pass Pro / Run Game ingredient stats, plus its
  * three blended grade scores, against every other team's latest week that
  * season. Sacks/pressure/stuff are "lower is better"; yards before contact
- * and the three grade scores are "higher is better". penalty_rate_worst_rank
- * is deliberately the odd one out -- rank 1 means the HIGHEST rate in the
- * league, since that's the framing the Overall badge's tooltip wants
- * ("2nd-highest penalty rate"), not a "lower is better" rank like the
+ * and the three grade scores are "higher is better". penalty_rate is
+ * deliberately ranked BOTH ways at once (like Strength of Schedule's
+ * hardest/easiest) -- the Overall badge's tooltip wants to describe a team
+ * as EITHER "2nd-highest" or "5th-lowest" depending on which half of the
+ * league it's actually in, not a single "lower is better" rank like the
  * others here. */
 async function getLeagueStatRanks(
   supabase: ReturnType<typeof createAnonServerClient>,
@@ -289,7 +294,8 @@ async function getLeagueStatRanks(
   pressure_rate_allowed_rank: number | null;
   stuff_rate_rank: number | null;
   yards_before_contact_per_att_rank: number | null;
-  penalty_rate_worst_rank: number | null;
+  penalty_rate_highest_rank: number | null;
+  penalty_rate_lowest_rank: number | null;
   pass_block_score_rank: number | null;
   run_block_score_rank: number | null;
   overall_score_rank: number | null;
@@ -322,7 +328,8 @@ async function getLeagueStatRanks(
       (r) => r.yards_before_contact_per_att,
       true
     ),
-    penalty_rate_worst_rank: rankAgainst(target.penalty_rate, all, (r) => r.penalty_rate, true),
+    penalty_rate_highest_rank: rankAgainst(target.penalty_rate, all, (r) => r.penalty_rate, true),
+    penalty_rate_lowest_rank: rankAgainst(target.penalty_rate, all, (r) => r.penalty_rate, false),
     pass_block_score_rank: rankAgainst(target.pass_block_score, all, (r) => r.pass_block_score, true),
     run_block_score_rank: rankAgainst(target.run_block_score, all, (r) => r.run_block_score, true),
     overall_score_rank: rankAgainst(target.overall_score, all, (r) => r.overall_score, true),

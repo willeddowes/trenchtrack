@@ -80,10 +80,15 @@ export default async function TeamPage({
   // Penalty rate is a small (8%) factor in Overall grade only -- see
   // compute_grades.py -- deliberately not shown as its own metric row
   // anywhere on the page, just this one tooltip note on the Overall badge.
+  // Top half of the league (worse discipline) reads "Nth-highest"; bottom
+  // half (better discipline) reads "Nth-lowest" -- whichever actually
+  // describes the team, same idea as the SOS hardest/easiest framing.
   const penaltyDetail =
-    stats?.penalty_rate_worst_rank !== undefined && stats?.penalty_rate_worst_rank !== null
-      ? `${ordinal(stats.penalty_rate_worst_rank)}-highest penalty rate`
-      : null;
+    stats?.penalty_rate_highest_rank !== undefined && stats?.penalty_rate_highest_rank !== null && stats.penalty_rate_highest_rank <= 16
+      ? `${ordinal(stats.penalty_rate_highest_rank)}-highest penalty rate`
+      : stats?.penalty_rate_lowest_rank !== undefined && stats?.penalty_rate_lowest_rank !== null
+        ? `${ordinal(stats.penalty_rate_lowest_rank)}-lowest penalty rate`
+        : null;
 
   return (
     <main className="mx-auto w-full min-w-0 max-w-[80rem] space-y-4 p-4 sm:p-8">
