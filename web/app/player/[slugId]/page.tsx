@@ -134,6 +134,12 @@ export default async function PlayerPage({
     : [];
   const position = primaryPosition;
 
+  // Bio and Current Contract sit side by side on desktop when both exist
+  // (see the grid wrapper below) -- a player missing one of them still
+  // gets a full-width single card instead of a lopsided half-empty grid.
+  const hasBio = Boolean(player && (player.height || player.weight || player.college || player.draft_year || player.rookie_season));
+  const hasContract = Boolean(currentContract);
+
   // Alternates a subtle shade per season group in the career table below --
   // every row of a multi-row season (e.g. a mid-season position switch)
   // shares one color, rather than zebra-striping every individual row.
@@ -206,69 +212,73 @@ export default async function PlayerPage({
         </div>
       </header>
 
-      {player && (player.height || player.weight || player.college || player.draft_year || player.rookie_season) && (
-        <section className="rounded-2xl border border-line bg-surface p-4">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Bio</h2>
-          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-            {player.height && (
-              <div>
-                <dt className="text-xs text-ink-muted">Height</dt>
-                <dd className="font-semibold">{formatHeight(player.height)}</dd>
-              </div>
-            )}
-            {player.weight && (
-              <div>
-                <dt className="text-xs text-ink-muted">Weight</dt>
-                <dd className="font-semibold">{player.weight} lbs</dd>
-              </div>
-            )}
-            {player.college && (
-              <div>
-                <dt className="text-xs text-ink-muted">College</dt>
-                <dd className="font-semibold">{player.college}</dd>
-              </div>
-            )}
-            {(player.draft_year || player.rookie_season) && (
-              <div>
-                <dt className="text-xs text-ink-muted">Draft</dt>
-                <dd className="font-semibold">
-                  {player.draft_year && player.draft_round && player.draft_pick
-                    ? `${player.draft_year} · Rd ${player.draft_round}, ${ordinal(player.draft_pick)} overall`
-                    : `${player.draft_year ?? player.rookie_season} · Undrafted`}
-                </dd>
-              </div>
-            )}
-          </dl>
-        </section>
-      )}
+      {(hasBio || hasContract) && (
+        <div className={`grid grid-cols-1 gap-4 ${hasBio && hasContract ? "lg:grid-cols-2" : ""}`}>
+          {hasBio && (
+            <section className="rounded-2xl border border-line bg-surface p-4">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Bio</h2>
+              <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                {player!.height && (
+                  <div>
+                    <dt className="text-xs text-ink-muted">Height</dt>
+                    <dd className="font-semibold">{formatHeight(player!.height)}</dd>
+                  </div>
+                )}
+                {player!.weight && (
+                  <div>
+                    <dt className="text-xs text-ink-muted">Weight</dt>
+                    <dd className="font-semibold">{player!.weight} lbs</dd>
+                  </div>
+                )}
+                {player!.college && (
+                  <div>
+                    <dt className="text-xs text-ink-muted">College</dt>
+                    <dd className="font-semibold">{player!.college}</dd>
+                  </div>
+                )}
+                {(player!.draft_year || player!.rookie_season) && (
+                  <div>
+                    <dt className="text-xs text-ink-muted">Draft</dt>
+                    <dd className="font-semibold">
+                      {player!.draft_year && player!.draft_round && player!.draft_pick
+                        ? `${player!.draft_year} · Rd ${player!.draft_round}, ${ordinal(player!.draft_pick)} overall`
+                        : `${player!.draft_year ?? player!.rookie_season} · Undrafted`}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
 
-      {currentContract && (
-        <section className="rounded-2xl border border-line bg-surface p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Current Contract</h2>
-              <div className="mt-0.5 flex items-baseline gap-1">
-                <span className="text-2xl font-extrabold" style={{ color: "var(--accent)" }}>
-                  {formatMoney(currentContract.apy)}
-                </span>
-                <span className="text-sm font-bold text-ink-muted">/yr</span>
+          {hasContract && (
+            <section className="rounded-2xl border border-line bg-surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Current Contract</h2>
+                  <div className="mt-0.5 flex items-baseline gap-1">
+                    <span className="text-2xl font-extrabold" style={{ color: "var(--accent)" }}>
+                      {formatMoney(currentContract!.apy)}
+                    </span>
+                    <span className="text-sm font-bold text-ink-muted">/yr</span>
+                  </div>
+                  <p className="text-xs text-ink-muted">
+                    {currentContract!.yearsSigned && `${currentContract!.yearsSigned}-yr`}
+                    {currentContract!.totalValue && `, ${formatMoney(currentContract!.totalValue)} total`}
+                    {` · signed ${currentContract!.yearSigned}`}
+                  </p>
+                </div>
+                {currentContract!.positionRank && position && (
+                  <span
+                    className="shrink-0 rounded-2xl px-3.5 py-1.5 text-xs font-extrabold"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--accent) 16%, var(--surface))", color: "var(--accent)" }}
+                  >
+                    {ordinal(currentContract!.positionRank)}-highest {position}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-ink-muted">
-                {currentContract.yearsSigned && `${currentContract.yearsSigned}-yr`}
-                {currentContract.totalValue && `, ${formatMoney(currentContract.totalValue)} total`}
-                {` · signed ${currentContract.yearSigned}`}
-              </p>
-            </div>
-            {currentContract.positionRank && position && (
-              <span
-                className="shrink-0 rounded-2xl px-3.5 py-1.5 text-xs font-extrabold"
-                style={{ backgroundColor: "color-mix(in srgb, var(--accent) 16%, var(--surface))", color: "var(--accent)" }}
-              >
-                {ordinal(currentContract.positionRank)}-highest {position}
-              </span>
-            )}
-          </div>
-        </section>
+            </section>
+          )}
+        </div>
       )}
 
       <div className={`grid grid-cols-1 gap-4 ${combineRows.length > 0 ? "lg:grid-cols-[200px_1fr]" : ""}`}>
