@@ -48,6 +48,9 @@ export default async function RootLayout({
           <Link href={`/stats/${CURRENT_SEASON}`} className="text-sm font-bold text-ink-muted hover:text-ink">
             Team Stats
           </Link>
+          <Link href="/articles" className="text-sm font-bold text-ink-muted hover:text-ink">
+            Articles
+          </Link>
           {/* Below sm there's no room for logo + nav + both search boxes on
               one row, so HeaderSearch hides them behind a magnifying-glass
               toggle on mobile; sm+ keeps them always visible inline. */}

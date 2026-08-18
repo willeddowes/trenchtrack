@@ -255,6 +255,24 @@ create index if not exists player_contracts_player_idx
   on player_contracts (player_id);
 
 -- ============================================================================
+-- articles: hand-written editorial content authored in the /internal/articles
+-- admin form (a Tiptap WYSIWYG editor), stored as sanitized HTML. Unlike
+-- every other table here, its RLS policy is NOT "anyone can read" -- only
+-- published = true rows are public, so a draft saved but not yet published
+-- never appears on the public site even though the anon key can query the
+-- table.
+-- ============================================================================
+create table if not exists articles (
+  id bigint generated always as identity primary key,
+  slug text not null unique,
+  title text not null,
+  content_html text not null,
+  published boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================================
 -- team_ol_stats: the core computed table -- one row per team, per season,
 -- per week. This is stored as WEEKLY HISTORY (never overwritten) rather than
 -- a single "current" snapshot, specifically so that a future "grade over the
@@ -471,6 +489,7 @@ alter table player_archetypes enable row level security;
 alter table player_injury_reports enable row level security;
 alter table player_injury_rates enable row level security;
 alter table player_contracts enable row level security;
+alter table articles enable row level security;
 
 drop policy if exists "public read access" on teams;
 create policy "public read access" on teams for select using (true);
@@ -520,6 +539,12 @@ create policy "public read access" on player_injury_rates for select using (true
 drop policy if exists "public read access" on player_contracts;
 create policy "public read access" on player_contracts for select using (true);
 
+-- Only published articles are visible to the anon/authenticated roles --
+-- drafts stay readable by service_role (which bypasses RLS) for the admin
+-- list page.
+drop policy if exists "public read access" on articles;
+create policy "public read access" on articles for select using (published = true);
+
 -- ============================================================================
 -- Grants: with "Automatically expose new tables" turned off in the Supabase
 -- dashboard, tables aren't reachable through the Data API by default -- you
@@ -547,7 +572,8 @@ grant select on
   player_archetypes,
   player_injury_reports,
   player_injury_rates,
-  player_contracts
+  player_contracts,
+  articles
 to anon, authenticated;
 
 -- service_role is meant to bypass RLS and have full write access -- but it
@@ -571,5 +597,6 @@ grant select, insert, update, delete on
   player_archetypes,
   player_injury_reports,
   player_injury_rates,
-  player_contracts
+  player_contracts,
+  articles
 to service_role;
