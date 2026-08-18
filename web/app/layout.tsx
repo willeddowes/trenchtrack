@@ -38,22 +38,27 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-ink">
-        <header className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4 sm:gap-5 sm:px-8">
+        <header className="flex flex-wrap items-center gap-3 border-b border-line px-6 py-4 sm:gap-8 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent p-1.5 text-accent-ink">
               <LogoMark className="h-full w-full" />
             </span>
             TrenchTrack
           </Link>
-          <Link href={`/stats/${CURRENT_SEASON}`} className="text-sm font-bold text-ink-muted hover:text-ink">
-            Team Stats
-          </Link>
-          <Link href="/articles" className="text-sm font-bold text-ink-muted hover:text-ink">
-            Articles
-          </Link>
+          {/* Hidden below sm -- Team Stats/Articles move into HeaderSearch's
+              burger dropdown there instead, alongside the search toggle. */}
+          <nav className="hidden items-center gap-6 sm:flex">
+            <Link href={`/stats/${CURRENT_SEASON}`} className="text-sm font-bold text-ink-muted hover:text-ink">
+              Team Stats
+            </Link>
+            <Link href="/articles" className="text-sm font-bold text-ink-muted hover:text-ink">
+              Articles
+            </Link>
+          </nav>
           {/* Below sm there's no room for logo + nav + both search boxes on
-              one row, so HeaderSearch hides them behind a magnifying-glass
-              toggle on mobile; sm+ keeps them always visible inline. */}
+              one row, so HeaderSearch collapses nav + search behind two
+              toggle buttons on mobile; sm+ keeps search always visible,
+              pushed to the far right (ml-auto inside HeaderSearch). */}
           <HeaderSearch players={players} />
         </header>
         {children}
