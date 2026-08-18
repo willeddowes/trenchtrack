@@ -403,8 +403,12 @@ create table if not exists player_combine (
   cone numeric,
   shuttle numeric,
 
-  -- percentiles are mockdraftable-only (nflreadpy doesn't compute them) --
-  -- null whenever source = 'nflreadpy' and mockdraftable had no match.
+  -- percentiles are computed by pipeline/compute_combine_percentiles.py
+  -- from the raw drill numbers above (per position group OT/OG/C, against
+  -- every other tracked OL with a value for that field) -- not sourced
+  -- from mockdraftable directly, since that was a one-off manual scrape
+  -- never re-run for new draft classes. Null whenever there's no raw
+  -- value to rank, or fewer than 2 other players to compare against.
   arm_length_percentile numeric,
   hand_size_percentile numeric,
   wingspan_percentile numeric,
