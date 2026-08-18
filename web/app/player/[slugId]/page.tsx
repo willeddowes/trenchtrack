@@ -135,6 +135,37 @@ export default async function PlayerPage({
     : [];
   const position = primaryPosition;
 
+  // Combine/Pro Day list splits into two columns once there are more than 5
+  // datapoints -- keeps a long list (9 max) from pushing the card too tall,
+  // especially on mobile where it's full-width and has room to spare. Split
+  // column-major (first half top-to-bottom on the left, rest on the right)
+  // rather than pairing items row-by-row, so it degrades to the original
+  // single-column order for free when the columns re-stack. Desktop keeps
+  // a single column regardless of count -- the card only gets a fixed 200px
+  // rail there (the Career table takes the rest of the row), too narrow for
+  // a second column.
+  const combineTwoCols = combineRows.length > 5;
+  const combineColA = combineTwoCols ? combineRows.slice(0, Math.ceil(combineRows.length / 2)) : combineRows;
+  const combineColB = combineTwoCols ? combineRows.slice(Math.ceil(combineRows.length / 2)) : [];
+  const renderCombineList = (rows: typeof combineRows) => (
+    <dl className="mt-1 divide-y divide-line text-sm">
+      {rows.map(({ label, field, percentileField, format }) => {
+        const value = combine![field] as number;
+        const percentile = combine![percentileField] as number | null;
+        const colorVar = percentile !== null && percentile !== undefined ? percentileColorVar(percentile) : null;
+        return (
+          <div key={field} className="py-2">
+            <dt className="text-xs text-ink-muted">{label}</dt>
+            <dd className="font-semibold" style={colorVar ? { color: `var(${colorVar})` } : undefined}>
+              {format(value)}
+              {colorVar && <span className="ml-1 font-normal text-ink-muted">({ordinal(percentile!)} pctl)</span>}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+
   // Bio splits into two compact boxes (Physical / College & Draft) that
   // sit alongside Current Contract on desktop -- Contract stays widest
   // (its "hero" number needs the room), the other two are dense chip-style
@@ -208,7 +239,7 @@ export default async function PlayerPage({
   const collegeDraftBox = hasCollegeDraft && (
     <section className="rounded-xl border border-line bg-surface p-3">
       <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">College &amp; Draft</h2>
-      <div className="mt-1.5 text-xs">
+      <div className="mt-3 text-xs">
         {player!.college && <p className="font-semibold">{player!.college}</p>}
         <p className="text-ink-muted">
           {player!.draft_year && player!.draft_round && player!.draft_pick
@@ -319,24 +350,14 @@ export default async function PlayerPage({
         <section className="rounded-2xl border border-line bg-surface p-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">Combine / Pro Day</h2>
           {combineRows.length > 0 ? (
-            <dl className="mt-1 divide-y divide-line text-sm">
-              {combineRows.map(({ label, field, percentileField, format }) => {
-                const value = combine![field] as number;
-                const percentile = combine![percentileField] as number | null;
-                const colorVar = percentile !== null && percentile !== undefined ? percentileColorVar(percentile) : null;
-                return (
-                  <div key={field} className="py-2">
-                    <dt className="text-xs text-ink-muted">{label}</dt>
-                    <dd className="font-semibold" style={colorVar ? { color: `var(${colorVar})` } : undefined}>
-                      {format(value)}
-                      {colorVar && (
-                        <span className="ml-1 font-normal text-ink-muted">({ordinal(percentile!)} pctl)</span>
-                      )}
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
+            combineTwoCols ? (
+              <div className="grid grid-cols-2 gap-x-4 lg:grid-cols-1">
+                {renderCombineList(combineColA)}
+                {renderCombineList(combineColB)}
+              </div>
+            ) : (
+              renderCombineList(combineRows)
+            )
           ) : (
             <p className="mt-2 text-sm text-ink-muted">(None)</p>
           )}
