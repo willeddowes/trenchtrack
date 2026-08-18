@@ -95,18 +95,18 @@ export default async function TeamPage({
       <header className="flex flex-wrap items-center gap-4">
         <TeamLogo team={team} size={56} />
         <div className="min-w-[10rem] flex-1">
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-3">
             <h1 className="text-xl font-extrabold tracking-tight">{team.team_name}</h1>
-            <span className="text-sm font-bold text-ink-muted">- {season}</span>
+            <SeasonDropdown
+              basePath={`/team/${slug}`}
+              activeSeason={season}
+              seasons={SUPPORTED_SEASONS}
+              grades={seasonGrades}
+              teamColor={team.primary_color}
+            />
           </div>
           <p className="text-xs text-ink-muted">{team.division}</p>
         </div>
-        <SeasonDropdown
-          basePath={`/team/${slug}`}
-          activeSeason={season}
-          seasons={SUPPORTED_SEASONS}
-          grades={seasonGrades}
-        />
       </header>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_1fr_1fr]">
