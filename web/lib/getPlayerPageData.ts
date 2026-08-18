@@ -30,6 +30,11 @@ export type CurrentContract = {
    * the league (draft_year, or rookie_season for an undrafted player) --
    * i.e. still on their original rookie-scale deal, not an extension. */
   isRookieContract: boolean;
+  /** True when apy above is a first-round pick's exercised 5th-year option
+   * salary rather than the base 4-year rookie deal's average -- takes
+   * priority over isRookieContract for display (still rookie-scale money,
+   * but a different label: "5th year opt." not "Rookie"). */
+  isFifthYearOption: boolean;
 };
 
 export type PlayerInjuryEntry = {
@@ -175,7 +180,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     // see player_contracts' comment in schema.sql.
     supabase
       .from("player_contracts")
-      .select("position, year_signed, years, total_value, apy, is_current")
+      .select("position, year_signed, years, total_value, apy, is_current, fifth_year_option_season, fifth_year_option_apy")
       .eq("player_id", playerId)
       .order("year_signed", { ascending: true }),
   ]);
@@ -244,15 +249,19 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
   const currentContractRow = (contractRows ?? []).find((r) => r.is_current);
   let currentContract: CurrentContract | null = null;
   if (currentContractRow) {
+    // A 5th-year option row's real current pay is the option salary, not
+    // the base 4-year rookie deal's average -- see fifth_year_option_season's
+    // comment in schema.sql.
+    const effectiveApy = currentContractRow.fifth_year_option_apy ?? currentContractRow.apy;
     const group = POSITION_GROUP[currentContractRow.position ?? ""];
     let positionRank: number | null = null;
     if (group) {
       const { data: peers } = await supabase
         .from("player_contracts")
-        .select("apy")
+        .select("apy, fifth_year_option_apy")
         .eq("is_current", true)
         .in("position", POSITION_GROUP_MEMBERS[group]);
-      const betterCount = (peers ?? []).filter((p) => p.apy > currentContractRow.apy).length;
+      const betterCount = (peers ?? []).filter((p) => (p.fifth_year_option_apy ?? p.apy) > effectiveApy).length;
       positionRank = betterCount + 1;
     }
     // Rookie-scale deal = signed the same year they entered the league --
@@ -263,17 +272,23 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     currentContract = {
       yearsSigned: currentContractRow.years,
       totalValue: currentContractRow.total_value,
-      apy: currentContractRow.apy,
+      apy: effectiveApy,
       yearSigned: currentContractRow.year_signed,
       positionRank,
       isRookieContract: entryYear !== null && currentContractRow.year_signed === entryYear,
+      isFifthYearOption: currentContractRow.fifth_year_option_apy != null,
     };
   }
 
   // For a career row's season, find whichever contract's [year_signed,
   // year_signed+years) window covers it -- the latest-signed one that
-  // qualifies, in case of an overlap.
+  // qualifies, in case of an overlap. A season matching some contract's
+  // fifth_year_option_season gets that specific option-year salary instead
+  // of the base window's average, real number over an estimate.
   function apyForSeason(season: number): number | null {
+    for (const c of contractRows ?? []) {
+      if (c.fifth_year_option_season === season && c.fifth_year_option_apy != null) return c.fifth_year_option_apy;
+    }
     let best: { year_signed: number; apy: number } | null = null;
     for (const c of contractRows ?? []) {
       const span = c.years ?? 1;

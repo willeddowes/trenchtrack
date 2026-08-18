@@ -235,7 +235,14 @@ create table if not exists player_injury_rates (
 -- reconstructed from within contract_history, since the two occasionally
 -- disagree slightly for restructured/tendered deals (see
 -- pull_player_contracts.py). A career-table season's APY is found by
--- picking whichever row's [year_signed, year_signed+years) covers it.
+-- picking whichever row's [year_signed, year_signed+years) covers it,
+-- or fifth_year_option_season if it matches instead.
+-- fifth_year_option_season/_apy: set only for a first-round pick's
+-- CBA-granted 5th contract year (a real, single-season salary tacked onto
+-- the end of the 4-year rookie deal, not a new signing) once it's been
+-- exercised -- pulled from OTC's year-by-year cap breakdown since the
+-- row's own apy/years only describe the base 4-year deal. See
+-- pull_player_contracts.py's _fifth_year_option() for the full writeup.
 -- ============================================================================
 create table if not exists player_contracts (
   id bigint generated always as identity primary key,
@@ -248,6 +255,8 @@ create table if not exists player_contracts (
   apy numeric,                  -- $ millions
   guaranteed numeric,           -- $ millions
   is_current boolean not null default false,
+  fifth_year_option_season int,
+  fifth_year_option_apy numeric, -- $ millions
   unique (player_id, year_signed)
 );
 

@@ -339,7 +339,11 @@ export default async function PlayerPage({
                 {currentContract!.yearsSigned && `${currentContract!.yearsSigned}-yr`}
                 {currentContract!.totalValue && `, ${formatMoney(currentContract!.totalValue)} total`}
                 {` · signed ${currentContract!.yearSigned}`}
-                {currentContract!.isRookieContract && <span className="font-semibold text-ink"> (Rookie)</span>}
+                {currentContract!.isFifthYearOption ? (
+                  <span className="font-semibold text-ink"> (5th year opt.)</span>
+                ) : (
+                  currentContract!.isRookieContract && <span className="font-semibold text-ink"> (Rookie)</span>
+                )}
               </p>
             </section>
           )}

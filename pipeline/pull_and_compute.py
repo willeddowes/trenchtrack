@@ -115,7 +115,7 @@ def main() -> None:
     upsert_team_ol_stats(client, to_write)
 
     print("Pulling player contract history (OverTheCap via nflreadpy)...")
-    upsert_player_contracts(client, pull_player_contracts())
+    upsert_player_contracts(client, pull_player_contracts(client))
 
     print("Done.")
 
