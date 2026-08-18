@@ -3,8 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
-import { TeamSearch } from "@/components/TeamSearch";
-import { PlayerSearch } from "@/components/PlayerSearch";
+import { HeaderSearch } from "@/components/HeaderSearch";
 import { LogoMark } from "@/components/LogoMark";
 import { CURRENT_SEASON } from "@/lib/teamsStatic";
 import { getPlayerSearchIndex } from "@/lib/getPlayerSearchIndex";
@@ -49,14 +48,10 @@ export default async function RootLayout({
           <Link href={`/stats/${CURRENT_SEASON}`} className="text-sm font-bold text-ink-muted hover:text-ink">
             Team Stats
           </Link>
-          {/* Full-width and stacked below sm so the two search boxes wrap
-              to their own row instead of overflowing the header alongside
-              the logo/nav link -- there's no room for all four on one row
-              below ~640px. */}
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-1 sm:flex-row sm:items-center sm:gap-3">
-            <TeamSearch />
-            <PlayerSearch players={players} />
-          </div>
+          {/* Below sm there's no room for logo + nav + both search boxes on
+              one row, so HeaderSearch hides them behind a magnifying-glass
+              toggle on mobile; sm+ keeps them always visible inline. */}
+          <HeaderSearch players={players} />
         </header>
         {children}
         <Analytics />

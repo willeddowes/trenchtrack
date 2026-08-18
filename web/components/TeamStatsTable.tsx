@@ -50,7 +50,7 @@ export function TeamStatsTable({ rows, season }: { rows: TeamStatsRow[]; season:
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs font-bold uppercase tracking-wide text-ink-muted">
-              <th className="px-4 py-3">Team</th>
+              <th className="sticky left-0 z-20 border-r border-line bg-surface px-4 py-3">Team</th>
               {STATS_COLUMNS.map((col) => (
                 <th key={col.key} className="px-3 py-3 text-right">
                   <button
@@ -67,8 +67,8 @@ export function TeamStatsTable({ rows, season }: { rows: TeamStatsRow[]; season:
           </thead>
           <tbody className="divide-y divide-line">
             {sortedRows.map((row) => (
-              <tr key={row.team_abbr} className="hover:bg-background">
-                <td className="px-4 py-2">
+              <tr key={row.team_abbr} className="group hover:bg-background">
+                <td className="sticky left-0 z-10 border-r border-line bg-surface px-4 py-2 group-hover:bg-background">
                   <Link href={`/team/${row.slug}/${season}`} className="flex items-center gap-2 hover:text-accent">
                     <TeamLogo team={row} size={24} />
                     <span className="font-semibold">{row.team_nickname}</span>
