@@ -48,6 +48,8 @@ create table if not exists players (
   rookie_season int,                 -- first NFL season -- nflreadpy's load_players() has this (rookie_season)
                                       -- for undrafted players too, unlike draft_year (null for them); lets the
                                       -- player page show "20XX · Undrafted" instead of hiding the Draft field entirely
+  birth_date date,                   -- age is computed from this at render time (web/lib), not stored, so it's
+                                      -- always current without needing a daily pipeline run
   updated_at timestamptz not null default now()
 );
 
@@ -62,6 +64,7 @@ alter table players add column if not exists draft_round int;
 alter table players add column if not exists draft_pick int;
 alter table players add column if not exists draft_team text;
 alter table players add column if not exists rookie_season int;
+alter table players add column if not exists birth_date date;
 
 -- ============================================================================
 -- ol_depth_chart: per team, per season, per position -- every player who

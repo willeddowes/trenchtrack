@@ -15,6 +15,13 @@
       "port": 3001
     },
     {
+      "name": "trenchtrack-web-3002",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "web", "--", "--port", "3002"],
+      "url": "http://localhost:3002",
+      "port": 3002
+    },
+    {
       "name": "design-preview",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8899", "--directory", "/private/tmp/claude-501/-Users-willeddowes-trench-track/12247fb1-a48e-449f-98cf-6b7d60663c6c/scratchpad"],

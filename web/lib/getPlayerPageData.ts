@@ -26,6 +26,10 @@ export type CurrentContract = {
    * highest-paid at that group. Null if no other current contracts exist
    * to rank against (shouldn't happen in practice). */
   positionRank: number | null;
+  /** True when this contract was signed the same year the player entered
+   * the league (draft_year, or rookie_season for an undrafted player) --
+   * i.e. still on their original rookie-scale deal, not an extension. */
+  isRookieContract: boolean;
 };
 
 export type PlayerInjuryEntry = {
@@ -71,6 +75,11 @@ export type PlayerPageData = {
     draft_team: string | null;
     rookie_season: number | null;
   } | null;
+  /** Computed from players.birth_date at request time (not stored) so it's
+   * always current -- null for a retired/departed player (no `players`
+   * row at all) or the rare current player nflreadpy has no birth date
+   * for. */
+  age: number | null;
   displayName: string;
   career: PlayerCareerRow[];
   combine: PlayerCombine | null;
@@ -131,7 +140,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
     supabase
       .from("players")
       .select(
-        "player_id, full_name, position, team_abbr, headshot_url, height, weight, college, draft_year, draft_round, draft_pick, draft_team, rookie_season"
+        "player_id, full_name, position, team_abbr, headshot_url, height, weight, college, draft_year, draft_round, draft_pick, draft_team, rookie_season, birth_date"
       )
       .eq("player_id", playerId)
       .maybeSingle(),
@@ -185,6 +194,19 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
   // back to whatever name ol_depth_chart recorded (retired players).
   const displayName = player?.full_name ?? careerRows[0].player_name;
 
+  const age = (() => {
+    if (!player?.birth_date) return null;
+    const birth = new Date(player.birth_date);
+    if (Number.isNaN(birth.getTime())) return null;
+    const today = new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    const hasHadBirthdayThisYear =
+      today.getMonth() > birth.getMonth() ||
+      (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+    if (!hasHadBirthdayThisYear) years -= 1;
+    return years;
+  })();
+
   const snapsByGroup = new Map<"OT" | "OG" | "C", number>();
   for (const row of careerRows) {
     const group = POSITION_GROUP[row.position];
@@ -233,12 +255,18 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
       const betterCount = (peers ?? []).filter((p) => p.apy > currentContractRow.apy).length;
       positionRank = betterCount + 1;
     }
+    // Rookie-scale deal = signed the same year they entered the league --
+    // draft_year for a drafted player, rookie_season for an undrafted one
+    // (their first real contract still counts as a "rookie deal" even
+    // without a draft slot attached to it).
+    const entryYear = player?.draft_year ?? player?.rookie_season ?? null;
     currentContract = {
       yearsSigned: currentContractRow.years,
       totalValue: currentContractRow.total_value,
       apy: currentContractRow.apy,
       yearSigned: currentContractRow.year_signed,
       positionRank,
+      isRookieContract: entryYear !== null && currentContractRow.year_signed === entryYear,
     };
   }
 
@@ -258,6 +286,7 @@ export async function getPlayerPageData(playerId: string): Promise<PlayerPageDat
 
   return {
     player,
+    age,
     displayName,
     combine: combine ?? null,
     allTimeHonors: (honors ?? []).map((h) => h.honor),

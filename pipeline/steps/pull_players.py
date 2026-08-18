@@ -48,6 +48,7 @@ def pull_players(season: int) -> list[dict]:
                 # still has rookie_season for them -- lets the player page
                 # show "20XX Undrafted" instead of hiding the Draft field.
                 "rookie_season": _clean_int(b["rookie_season"]) if b is not None else None,
+                "birth_date": None if b is None or pd.isna(b["birth_date"]) else str(b["birth_date"]),
             }
         )
     return rows
