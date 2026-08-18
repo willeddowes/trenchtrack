@@ -211,10 +211,15 @@ export default async function TeamPage({
 
       {depthChart.length > 0 && (
         <section className="rounded-2xl border border-line bg-surface p-4">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-ink-muted">
-            Offensive Line Depth Chart &middot; {isProjectedDepthChart ? "Projected" : "by snaps played"}
+          <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-ink">
+            OL Depth Chart
+            {isProjectedDepthChart && (
+              <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[0.65rem] font-bold text-accent normal-case tracking-normal">
+                Projected
+              </span>
+            )}
           </h2>
-          <table className="mt-2 w-full text-sm">
+          <table className="mt-4 w-full text-sm">
             <thead>
               <tr className="text-left text-xs font-bold uppercase tracking-wide text-ink-muted">
                 <th className="pb-2 pr-2 font-bold">Pos</th>
