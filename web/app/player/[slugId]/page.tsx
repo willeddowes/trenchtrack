@@ -177,6 +177,48 @@ export default async function PlayerPage({
     count: allTimeHonors.filter((h) => h === honor).length,
   })).filter((h) => h.count > 0);
 
+  // Built once and reused in both the paired (side-by-side) and lone-box
+  // JSX branches below instead of duplicating each box's markup twice.
+  const physicalBox = hasPhysical && (
+    <section className="rounded-xl border border-line bg-surface p-3">
+      <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">Physical</h2>
+      <dl className="mt-1.5 space-y-1 text-xs">
+        {age !== null && (
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-ink-muted">Age</dt>
+            <dd className="font-semibold">{age}</dd>
+          </div>
+        )}
+        {player!.height && (
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-ink-muted">Height</dt>
+            <dd className="font-semibold">{formatHeight(player!.height)}</dd>
+          </div>
+        )}
+        {player!.weight && (
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-ink-muted">Weight</dt>
+            <dd className="font-semibold">{player!.weight} lbs</dd>
+          </div>
+        )}
+      </dl>
+    </section>
+  );
+
+  const collegeDraftBox = hasCollegeDraft && (
+    <section className="rounded-xl border border-line bg-surface p-3">
+      <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">College &amp; Draft</h2>
+      <div className="mt-1.5 text-xs">
+        {player!.college && <p className="font-semibold">{player!.college}</p>}
+        <p className="text-ink-muted">
+          {player!.draft_year && player!.draft_round && player!.draft_pick
+            ? `${player!.draft_year} · Rd ${player!.draft_round}, ${ordinal(player!.draft_pick)} overall`
+            : (player!.draft_year ?? player!.rookie_season) && `${player!.draft_year ?? player!.rookie_season} · Undrafted`}
+        </p>
+      </div>
+    </section>
+  );
+
   return (
     <main className="mx-auto w-full min-w-0 max-w-[80rem] space-y-4 p-4 sm:p-8">
       {/* Stacked and centered below sm -- the 164px headshot next to a name
@@ -227,44 +269,22 @@ export default async function PlayerPage({
 
       {presentBoxCount > 0 && (
         <div className={`grid grid-cols-1 gap-4 ${bioGridColsClass}`}>
-          {hasPhysical && (
-            <section className="rounded-xl border border-line bg-surface p-3">
-              <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">Physical</h2>
-              <dl className="mt-1.5 space-y-1 text-xs">
-                {age !== null && (
-                  <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-ink-muted">Age</dt>
-                    <dd className="font-semibold">{age}</dd>
-                  </div>
-                )}
-                {player!.height && (
-                  <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-ink-muted">Height</dt>
-                    <dd className="font-semibold">{formatHeight(player!.height)}</dd>
-                  </div>
-                )}
-                {player!.weight && (
-                  <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-ink-muted">Weight</dt>
-                    <dd className="font-semibold">{player!.weight} lbs</dd>
-                  </div>
-                )}
-              </dl>
-            </section>
-          )}
-
-          {hasCollegeDraft && (
-            <section className="rounded-xl border border-line bg-surface p-3">
-              <h2 className="text-[0.65rem] font-bold uppercase tracking-wide text-ink-muted">College &amp; Draft</h2>
-              <div className="mt-1.5 text-xs">
-                {player!.college && <p className="font-semibold">{player!.college}</p>}
-                <p className="text-ink-muted">
-                  {player!.draft_year && player!.draft_round && player!.draft_pick
-                    ? `${player!.draft_year} · Rd ${player!.draft_round}, ${ordinal(player!.draft_pick)} overall`
-                    : (player!.draft_year ?? player!.rookie_season) && `${player!.draft_year ?? player!.rookie_season} · Undrafted`}
-                </p>
-              </div>
-            </section>
+          {/* Physical + College & Draft pair up into side-by-side squares
+              below lg (they're the two dense, similarly-sized boxes) --
+              `lg:contents` un-wraps the pairing div back into separate grid
+              items so the outer grid's 2-or-3-column split above still
+              applies there. A lone box (the other one missing) skips the
+              wrapper and just sits full-width like Contract does. */}
+          {hasPhysical && hasCollegeDraft ? (
+            <div className="grid grid-cols-2 gap-4 lg:contents">
+              {physicalBox}
+              {collegeDraftBox}
+            </div>
+          ) : (
+            <>
+              {hasPhysical && physicalBox}
+              {hasCollegeDraft && collegeDraftBox}
+            </>
           )}
 
           {hasContract && (
