@@ -2,13 +2,7 @@
 
 import { useMemo, useState, type PointerEvent } from "react";
 import type { TeamLeagueAverage, TeamWeeklyStat } from "@/lib/getTeamPageData";
-
-// Must match --accent in globals.css -- used as the chart-chrome color when
-// a team has no primary_color set. Contrast math needs the literal hex, not
-// the CSS var, so this stays a second source of truth (same tradeoff as the
-// grading formula's Python/TS duplication -- keep in sync if --accent ever
-// changes).
-const ACCENT_FALLBACK_HEX = "#2f5233";
+import { ACCENT_FALLBACK_HEX, contrastRatio } from "@/lib/contrastColor";
 
 const WIDTH = 640;
 const HEIGHT = 220;
@@ -291,29 +285,4 @@ export function TeamGradeTrendChart({
       )}
     </section>
   );
-}
-
-// WCAG contrast ratio (relative luminance formula) -- used only to decide
-// whether a team's primary_color is legible as chart-title text on white,
-// falling back to muted ink for teams whose color is too light (gold,
-// yellow, etc).
-function hexToRgb(hex: string): [number, number, number] {
-  const clean = hex.replace("#", "");
-  const value = parseInt(clean, 16);
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-}
-
-function relativeLuminance([r, g, b]: [number, number, number]): number {
-  const [rl, gl, bl] = [r, g, b].map((c) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
-}
-
-function contrastRatio(hexA: string, hexB: string): number {
-  const lA = relativeLuminance(hexToRgb(hexA));
-  const lB = relativeLuminance(hexToRgb(hexB));
-  const [lighter, darker] = lA > lB ? [lA, lB] : [lB, lA];
-  return (lighter + 0.05) / (darker + 0.05);
 }

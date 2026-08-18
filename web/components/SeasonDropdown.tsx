@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { GRADE_COLOR_VARS } from "@/components/GradeBadge";
+import { ACCENT_FALLBACK_HEX, readableTextColor } from "@/lib/contrastColor";
 
 // Team-page season switcher: a single accent-colored tab for the active
 // season (with its grade) that expands into a dropdown of the other years,
@@ -15,14 +16,19 @@ export function SeasonDropdown({
   activeSeason,
   seasons,
   grades,
+  teamColor,
 }: {
   basePath: string;
   activeSeason: number;
   seasons: number[];
   grades: Record<number, string | null>;
+  teamColor?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const bgColor = teamColor ?? ACCENT_FALLBACK_HEX;
+  const textColor = readableTextColor(bgColor);
 
   useEffect(() => {
     if (!open) return;
@@ -42,10 +48,11 @@ export function SeasonDropdown({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-sm font-bold text-accent-ink"
+        style={{ backgroundColor: bgColor, color: textColor }}
+        className="flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold"
       >
         {activeSeason}
-        <span className="text-[0.65rem] font-extrabold text-accent-ink">{activeGrade ?? "—"}</span>
+        <span className="text-[0.65rem] font-extrabold">{activeGrade ?? "—"}</span>
         <span className={`text-[0.6rem] transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
       </button>
 
