@@ -7,7 +7,7 @@ import { ordinal } from "@/lib/formatRank";
 import { buildPlayerSlug } from "@/lib/playerSlug";
 import { GradeBadge } from "@/components/GradeBadge";
 import { TeamLogo } from "@/components/TeamLogo";
-import { SeasonTabs } from "@/components/SeasonTabs";
+import { SeasonDropdown } from "@/components/SeasonDropdown";
 import { HonorBadge } from "@/components/HonorBadge";
 import { TeamGradeTrendChart } from "@/components/TeamGradeTrendChart";
 
@@ -101,12 +101,11 @@ export default async function TeamPage({
           </div>
           <p className="text-xs text-ink-muted">{team.division}</p>
         </div>
-        <SeasonTabs
+        <SeasonDropdown
           basePath={`/team/${slug}`}
           activeSeason={season}
           seasons={SUPPORTED_SEASONS}
           grades={seasonGrades}
-          gradeLayout="right"
         />
       </header>
 
